@@ -284,6 +284,40 @@ main{
 .sheet-body{max-width:760px; margin:0 auto; padding:14px 16px calc(28px + env(safe-area-inset-bottom))}
 body.sheet-open{overflow:hidden}
 
+/* ---------- 설정 · 메모 (조각 6) ---------- */
+.set-form, .set-data{display:grid; gap:12px; margin-top:12px}
+.set-field{display:grid; gap:4px}
+.set-field > span{font-size:13px; font-weight:800}
+.set-field input, .memo textarea{
+  width:100%; min-height:44px; border:var(--border); border-radius:var(--radius); background:var(--surface);
+  font:inherit; font-size:15px; font-weight:700; color:var(--ink); padding:8px 10px;
+}
+.set-field input:focus-visible, .memo textarea:focus-visible{outline:3px solid #2457d6; outline-offset:1px}
+.set-field.bad input{border-color:var(--over); background:var(--over-soft)}
+.set-unit{display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:6px}
+.set-unit i{font-style:normal; font-size:13px; font-weight:800; color:var(--muted); min-width:28px}
+.set-group{border:1.5px solid var(--line-soft); border-radius:var(--radius); padding:10px 12px 12px; margin:0; display:grid; gap:10px}
+.set-group legend{font-size:13px; font-weight:900; padding:0 4px}
+.set-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px}
+.set-errors{border:2px solid var(--over); background:var(--over-soft); color:var(--over); border-radius:var(--radius); padding:10px 12px; font-size:13.5px; font-weight:800}
+.set-errors ul{margin:4px 0 0; padding-left:18px}
+.set-actions{display:flex; gap:8px; flex-wrap:wrap}
+.btn{min-height:44px; padding:0 16px; border:var(--border); border-radius:var(--radius); background:var(--surface); font:inherit; font-size:14px; font-weight:900; color:var(--ink); cursor:pointer}
+.btn.primary{background:var(--ink); color:var(--yellow)}
+.btn.danger{border-color:var(--over); color:var(--over); justify-self:start}
+.btn:focus-visible{outline:3px solid #2457d6; outline-offset:2px}
+.btn[disabled]{opacity:.45; cursor:not-allowed}
+.set-status{margin:0; font-size:13px; font-weight:800; color:var(--ink-2)}
+.set-status.warn{color:var(--over)}
+.memo textarea{min-height:96px; font-weight:600; line-height:1.5; resize:vertical}
+.memo-actions{display:flex; gap:8px; flex-wrap:wrap}
+.memo-state{margin:0; font-size:12.5px; font-weight:800; color:var(--muted)}
+.memo-state.err{color:var(--over)}
+.memo.done{box-shadow:6px 6px 0 var(--yellow)}
+.badge.done{background:var(--yellow); color:var(--ink)}
+.owner-chip{display:inline-flex; align-items:center; gap:6px; height:28px; padding:0 10px; border-radius:4px; background:var(--surface); border:1.5px solid var(--ink); font-size:12.5px; font-weight:800}
+@media (max-width:420px){ .set-grid{grid-template-columns:1fr} }
+
 /* ---------- 예외 화면 ---------- */
 .ex-summary{display:grid; grid-template-columns:1.2fr 1fr; gap:8px}
 .ex-big{font-size:30px; font-weight:900; color:var(--yellow); letter-spacing:-.5px; line-height:1.1}
@@ -538,14 +572,32 @@ body.sheet-open{overflow:hidden}
       <p class="hint">색만으로 구분하지 않고 항상 부호(+/−)를 함께 씁니다. "확인 필요"는 틀렸다는 뜻이 아니라 사람이 볼 차례라는 뜻입니다.</p>
     </div>
 
-    <div class="section-label"><span>운영</span><span class="tag-soon">조각 6</span></div>
-    <div class="card list">
-      <div class="setting-row"><div class="label"><b>운영 담당자</b><span>첫 화면에 표시</span></div><span class="sk sk-line w30" aria-hidden="true"></span></div>
-      <div class="setting-row"><div class="label"><b>확인 필요 기준</b><span>차이율 5% · 하한 30만 원 · 상한 200만 원</span></div><span class="sk sk-line w30" aria-hidden="true"></span></div>
-      <div class="setting-row"><div class="label"><b>기종 주의 기준</b><span>개당 원가 +5% · 이익률 −5%p</span></div><span class="sk sk-line w30" aria-hidden="true"></span></div>
+    <!-- 운영 · 기준값 (R4.4 · R4.7 · 조각 6) -->
+    <form class="card set-form" id="set-form" novalidate>
+      <h2>운영 담당자와 확인 기준</h2>
+      <label class="set-field wide"><span>운영 담당자</span><input type="text" id="set-owner" maxlength="40" placeholder="이름 (예: 원가팀 담당자)" autocomplete="off"></label>
+      <fieldset class="set-group"><legend>확인 필요 기준 (프로젝트)</legend>
+        <div class="set-grid" id="set-grid-flag"></div>
+        <p class="hint">① 차이율 기준 <b>그리고</b> 금액 하한 이상 · ② 금액 상한 이상 · ③ 미분해 비율 <b>그리고</b> 미분해 금액 하한 이상 · ④ 견적 경과 개월 이상</p>
+      </fieldset>
+      <fieldset class="set-group"><legend>기종 주의 기준</legend>
+        <div class="set-grid" id="set-grid-kind"></div>
+      </fieldset>
+      <div class="set-errors" id="set-errors" role="alert" hidden></div>
+      <div class="set-actions">
+        <button type="submit" class="btn primary">적용</button>
+        <button type="button" class="btn" id="set-reset">기본값으로</button>
+      </div>
+      <p class="set-status" id="set-status" aria-live="polite"></p>
+    </form>
+
+    <div class="card set-data">
+      <h2>메모·확정 기록</h2>
+      <p class="hint" id="set-notes-info"></p>
+      <button type="button" class="btn danger" id="set-clear">메모·확정 모두 지우기</button>
     </div>
 
-    <div class="section-label"><span>자가 검산 (정답.md 예시 A~J + 가상 데이터)</span></div>
+    <div class="section-label"><span>자가 검산 (정답.md 예시 A~L + 가상 데이터 + 화면 점검)</span></div>
     <div class="selftest" id="selftest" aria-live="polite">
       <div class="kpi dark st-summary"><span class="kpi-label">계산 엔진 검산</span><span class="st-score num" id="st-score">—</span><span class="st-note" id="st-note">검산 중…</span></div>
       <div class="card list" id="st-list"></div>
@@ -970,6 +1022,39 @@ var SelfTest = (function(C){
         ck("정상 주소 해석", good.kind + "|" + good.dir + "|" + good.sort, "HS-SV-2.0kW|under|rate");
         ck("필터 없는 주소 → 지금 상태 유지(null)", L.parseFilters("projects", D.kinds), null);
     }},
+    { id: "L", title: "예시 L · 기준값·메모·확정·저장", run: function(ck){
+        function flagged(s){ return DemoData.get(s).projects.filter(function(t){ return t.flags.length; }).length; }
+        function count(s, f){ return DemoData.get(s).projects.filter(function(t){ return t.flags.indexOf(f) >= 0; }).length; }
+        ck("기본 확인 필요", flagged(), 27, 0);
+        ck("차이율 10% → 15건", flagged({ rateMin: 0.10 }), 15, 0);
+        ck("차이율 10% → 예외·보류 그대로", DemoData.get({ rateMin: 0.10 }).exceptions.length + "/" + DemoData.get({ rateMin: 0.10 }).held.length, "5/2");
+        ck("경과 3개월 → 55건 (④49)", flagged({ staleMonths: 3 }) + "/" + count({ staleMonths: 3 }, 4), "55/49");
+        ck("상한 100만 → 29건 (②12)", flagged({ amtMax: 1000000 }) + "/" + count({ amtMax: 1000000 }, 2), "29/12");
+        var D12 = DemoData.get({ kindUnitUp: 0.12 }), a12 = C.kindAlert(D12.projects, "HS-SV-2.0kW", D12.lastMonth, { kindUnitUp: 0.12 });
+        ck("기종 기준 12% → HS-SV ①정상 ②주의", a12.unit + "/" + a12.margin, "ok/alert");
+        var V = Store.validate, base = Store.toDisplay(C.DEFAULTS);
+        ck("기본값 검사 통과", V(base).ok, true);
+        ck("차이율 −5 거절", V(Object.assign({}, base, { rateMin: "-5" })).ok, false);
+        ck("하한 300만·상한 200만 거절", V(Object.assign({}, base, { amtMin: "3,000,000", amtMax: "2,000,000" })).ok, false);
+        ck("경과 0.5 거절", V(Object.assign({}, base, { staleMonths: "0.5" })).ok, false);
+        ck("쉼표 있는 금액 허용", V(Object.assign({}, base, { amtMin: "300,000" })).ok, true);
+        var mem = Store.memoryStorage(), st = Store.create(mem);
+        ck("잘못된 값 적용 시 그대로", (st.applySettings(Object.assign({}, base, { rateMin: "-5" })).ok ? "바뀜" : "그대로") + "/" + st.settings().rateMin, "그대로/0.05");
+        ck("메모 없이 확정 거절", st.setConfirmed("PJ-3047", true).ok, false);
+        st.setMemo("PJ-3047", "긴급 구매 단가");
+        ck("메모 후 확정", st.setConfirmed("PJ-3047", true).ok, true);
+        var st2 = Store.create(mem);
+        ck("다시 불러와도 유지", st2.note("PJ-3047").memo + "/" + st2.note("PJ-3047").confirmed, "긴급 구매 단가/true");
+        ck("목록 요약 확정 1", ListModel.model(DemoData.get(), {}, st2.confirmedSet()).summary.confirmed, 1, 0);
+        st2.setMemo("PJ-3047", "");
+        ck("메모를 지우면 확정도 풀림", st2.note("PJ-3047").confirmed, false);
+        var broken = Store.create({ getItem: function(){ throw new Error("blocked"); }, setItem: function(){ throw new Error("blocked"); } });
+        ck("저장소 막힘 → 기본값으로 작동", broken.settings().rateMin, 0.05);
+        broken.setMemo("X", "a");
+        ck("저장소 막힘 → 저장 안 됨 표시", broken.canSave(), false);
+        var bad = Store.memoryStorage(); bad.setItem(Store.KEY, "{oops");
+        ck("깨진 저장값 → 기본값", Store.create(bad).settings().amtMax, 2000000, 0);
+    }},
     { id: "DATA", title: "가상 데이터 · 예외 판정 (spec R0, R4.3)", run: function(ck){
         var D = DemoData.get();
         var reasons = {}; D.exceptions.forEach(function(e){ reasons[e.reason + "|" + e.pj] = e.action; });
@@ -1244,8 +1329,8 @@ var ListModel = (function(C){
   "use strict";
   var DEFAULT = { sort: "amount", dir: "all", kind: "", month: "", flagged: false };
 
-  function model(D, state){
-    var s = Object.assign({}, DEFAULT, state || {});
+  function model(D, state, confirmed){
+    var s = Object.assign({}, DEFAULT, state || {}), done = confirmed || {};
     var rows = D.projects.filter(function(t){
       if (s.kind && t.kind !== s.kind) return false;
       if (s.month && t.doneMonth !== s.month) return false;
@@ -1260,11 +1345,12 @@ var ListModel = (function(C){
       ? D.held.filter(function(h){ return (!s.kind || h.kind === s.kind) && (!s.month || h.doneMonth === s.month); })
       : [];
     // 요약: 지금 걸러진 목록 기준, 검산 불일치·계산 보류 제외 (R2.6)
-    var sum = { count: 0, pre: 0, post: 0, diff: 0, flagged: 0 };
+    var sum = { count: 0, pre: 0, post: 0, diff: 0, flagged: 0, confirmed: 0 };
     rows.forEach(function(t){
       if (!t.checkOk) return;
       sum.count++; sum.pre += t.pre; sum.post += t.post; sum.diff += t.diff;
       if (t.flags.length) sum.flagged++;
+      if (done[t.id]) sum.confirmed++;
     });
     var maxAbs = rows.reduce(function(m, t){ return Math.max(m, Math.abs(t.diff)); }, 0);
     return { state: s, rows: rows, held: held, summary: sum, maxAbs: maxAbs,
@@ -1435,6 +1521,107 @@ var DetailView = (function(C, L){
 </script>
 
 <script>
+/* =========================================================
+   저장 · 기준값 검사 · 메모/확정 (조각 6 · spec R4.2, R4.5, R4.7)
+   - 저장소를 주입받는다(실제 localStorage 또는 시험용 가짜) → 자가 검산이 사용자 메모를 건드리지 않음
+   ========================================================= */
+var Store = (function(C){
+  "use strict";
+  var KEY = "cvapp.v1";
+  // 화면 단위(%, 원, 개월) ↔ 엔진 단위(비율)
+  var FIELDS = [
+    { key: "rateMin",        label: "차이율 기준",        unit: "%",  kind: "pct" },
+    { key: "amtMin",         label: "금액 하한",          unit: "원", kind: "won" },
+    { key: "amtMax",         label: "금액 상한",          unit: "원", kind: "won" },
+    { key: "unexplRatio",    label: "미분해 비율",        unit: "%",  kind: "pct" },
+    { key: "unexplMin",      label: "미분해 금액 하한",   unit: "원", kind: "won" },
+    { key: "staleMonths",    label: "견적 경과",          unit: "개월", kind: "months" },
+    { key: "kindUnitUp",     label: "기종 개당 원가 상승", unit: "%",  kind: "pct" },
+    { key: "kindMarginDrop", label: "기종 이익률 하락",   unit: "%p", kind: "pct" }
+  ];
+
+  function toDisplay(s){
+    var o = {};
+    FIELDS.forEach(function(f){ var v = s[f.key]; o[f.key] = f.kind === "pct" ? Math.round(v * 10000) / 100 : v; });
+    return o;
+  }
+
+  // R4.7 — 하나라도 틀리면 아무것도 적용하지 않는다
+  function validate(input){
+    var out = {}, errors = [];
+    FIELDS.forEach(function(f){
+      var raw = input[f.key], v = (typeof raw === "string") ? Number(raw.replace(/,/g, "").trim()) : Number(raw);
+      if (raw === "" || raw === null || raw === undefined || !isFinite(v)){ errors.push(f.label + ": 숫자를 넣어 주세요"); return; }
+      if (f.kind === "pct"){ if (!(v > 0 && v <= 100)) errors.push(f.label + ": 0 초과 100 이하여야 합니다"); else out[f.key] = v / 100; }
+      else if (f.kind === "won"){ if (!(v >= 0) || Math.floor(v) !== v) errors.push(f.label + ": 0 이상의 정수(원)여야 합니다"); else out[f.key] = v; }
+      else { if (!(v >= 1 && v <= 24) || Math.floor(v) !== v) errors.push(f.label + ": 1~24 사이 정수여야 합니다"); else out[f.key] = v; }
+    });
+    if (out.amtMin !== undefined && out.amtMax !== undefined && out.amtMax < out.amtMin) errors.push("금액 상한은 금액 하한보다 크거나 같아야 합니다");
+    return { ok: errors.length === 0, settings: errors.length ? null : out, errors: errors };
+  }
+
+  function stamp(){
+    var d = new Date(), p = function(n){ return (n < 10 ? "0" : "") + n; };
+    return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate()) + " " + p(d.getHours()) + ":" + p(d.getMinutes());
+  }
+
+  function create(storage){
+    var state = { settings: {}, owner: "", notes: {} }, canSave = !!storage;
+    try {
+      var raw = storage ? storage.getItem(KEY) : null;
+      if (raw){
+        var o = JSON.parse(raw);
+        if (o && typeof o === "object"){
+          var v = validate(toDisplay(Object.assign({}, C.DEFAULTS, o.settings || {})));
+          state.settings = v.ok ? v.settings : {};                 // 깨진 기준값이면 기본값
+          state.owner = typeof o.owner === "string" ? o.owner.slice(0, 40) : "";
+          state.notes = (o.notes && typeof o.notes === "object") ? o.notes : {};
+        }
+      }
+    } catch (e) { state = { settings: {}, owner: "", notes: {} }; }   // 깨진 저장값 → 기본값 (R4.5)
+
+    function save(){
+      if (!storage){ canSave = false; return false; }
+      try { storage.setItem(KEY, JSON.stringify(state)); canSave = true; } catch (e) { canSave = false; }
+      return canSave;
+    }
+    function settings(){ return Object.assign({}, C.DEFAULTS, state.settings); }
+    function applySettings(input, owner){
+      var v = validate(input);
+      if (!v.ok) return v;
+      state.settings = v.settings;
+      if (typeof owner === "string") state.owner = owner.trim().slice(0, 40);
+      save();
+      return v;
+    }
+    function resetSettings(){ state.settings = {}; save(); }
+    function note(id){ return state.notes[id] || { memo: "", confirmed: false, at: "" }; }
+    function setMemo(id, memo){
+      var n = note(id);
+      state.notes[id] = { memo: String(memo).slice(0, 2000), confirmed: n.confirmed && String(memo).trim().length > 0, at: stamp() };
+      save();
+      return state.notes[id];
+    }
+    function setConfirmed(id, on){
+      var n = note(id);
+      if (on && n.memo.trim().length === 0) return { ok: false, message: "원인 메모를 먼저 적어 주세요" };
+      state.notes[id] = { memo: n.memo, confirmed: !!on, at: stamp() };
+      save();
+      return { ok: true };
+    }
+    function confirmedSet(){ var s = {}; Object.keys(state.notes).forEach(function(k){ if (state.notes[k].confirmed) s[k] = true; }); return s; }
+    function clearNotes(){ state.notes = {}; save(); }
+    return { state: state, save: save, canSave: function(){ return canSave; }, settings: settings, applySettings: applySettings,
+             resetSettings: resetSettings, note: note, setMemo: setMemo, setConfirmed: setConfirmed, confirmedSet: confirmedSet, clearNotes: clearNotes };
+  }
+
+  function browserStorage(){ try { var s = window.localStorage; s.getItem(KEY); return s; } catch (e) { return null; } }
+  function memoryStorage(){ var m = {}; return { getItem: function(k){ return m.hasOwnProperty(k) ? m[k] : null; }, setItem: function(k, v){ m[k] = String(v); }, _m: m }; }
+  return { KEY: KEY, FIELDS: FIELDS, toDisplay: toDisplay, validate: validate, create: create, browserStorage: browserStorage, memoryStorage: memoryStorage };
+})(CostCalc);
+</script>
+
+<script>
 (function(){
   "use strict";
   var VIEWS = ["kinds","projects","exceptions","settings"];
@@ -1527,8 +1714,55 @@ var DetailView = (function(C, L){
     return r;
   }
 
+  // 설정·메모 화면 점검 (정답 L, 조각 6) — 실제 저장소 대신 가짜 저장소로 바꿔 그려 보고 되돌린다
+  function settingsChecks(){
+    var r = { id: "UI-L", title: "화면 그리기 점검 · 설정·메모·확정 (정답 L)", total: 0, passed: 0, fails: [] };
+    function ck(label, got, want){ r.total++; if (got === want) r.passed++; else r.fails.push(label + ": 결과 " + got + " / 정답 " + want); }
+    var realStore = STORE, savedState = Object.assign({}, listState), savedSel = selectedId;
+    try {
+      ck("기준값 입력 칸 8개", document.querySelectorAll("#set-form .set-grid input").length, 8);
+      ck("차이율 칸 값", document.querySelector('#set-form input[name="rateMin"]').value, String(Store.toDisplay(realStore.settings()).rateMin));
+      var fake = Store.create(Store.memoryStorage());
+      fake.setMemo("PJ-3060", "가공비 증가 — 생산팀 확인"); fake.setConfirmed("PJ-3060", true);
+      STORE = fake; listState = Object.assign({}, L.DEFAULT); selectedId = "PJ-3060"; renderList();
+      var first = document.querySelector("#pj-cards .pj[data-id]");
+      ck("확정 카드 배지", first && first.querySelector(".badge").textContent, "확정 ✓ ①②");
+      ck("확정 카드는 경고 줄무늬 없음", first && first.classList.contains("flag"), false);
+      ck("요약에 확정 1", /확정 1 /.test(document.getElementById("k-flag-sub").textContent), true);
+      var ta = document.querySelector("#pj-detail .memo-text");
+      ck("상세에 메모 칸", !!ta && ta.value, "가공비 증가 — 생산팀 확인");
+      ck("상세 확정 버튼", document.querySelector("#pj-detail .memo-confirm").textContent, "확정 취소");
+
+      // 사람이 실제로 누르는 흐름 (조각 6 점검)
+      selectedId = "PJ-3047"; renderDetailStub();
+      var sec = document.querySelector("#pj-detail .memo");
+      sec.querySelector(".memo-confirm").click();
+      ck("메모 없이 확정 누름 → 안내", sec.querySelector(".memo-state").textContent, "원인 메모를 먼저 적어 주세요");
+      ck("메모 없이 → 확정 안 됨", STORE.note("PJ-3047").confirmed, false);
+      sec.querySelector(".memo-text").value = "긴급 구매 단가 — 구매팀 확인";
+      sec.querySelector(".memo-confirm").click();
+      ck("메모 적고 확정 누름 → 확정", STORE.note("PJ-3047").confirmed, true);
+      var b3047 = document.querySelector('#pj-cards .pj[data-id="PJ-3047"] .badge');
+      ck("목록 카드도 확정 ✓", b3047 && b3047.textContent, "확정 ✓ ①③");
+      var form = document.getElementById("set-form");
+      function submitWith(val){ form.querySelector('input[name="rateMin"]').value = val; form.dispatchEvent(new Event("submit", { cancelable: true })); }
+      submitWith("10");
+      ck("차이율 10 적용 → 확인 필요 15건", flaggedCount(DATA), 15);
+      ck("적용 안내 27 → 15", /27건 → 15건/.test(document.getElementById("set-status").textContent), true);
+      ck("적용 후에도 확정 유지", STORE.note("PJ-3047").confirmed, true);
+      submitWith("-5");
+      ck("−5 → 거절 안내", document.getElementById("set-errors").hidden, false);
+      ck("−5 → 칸 표시", form.querySelector('.set-field[data-key="rateMin"]').classList.contains("bad"), true);
+      ck("−5 → 기준 그대로(15건)", flaggedCount(DATA), 15);
+    } catch (e) { r.total++; r.fails.push("실행 오류: " + e.message); }
+    STORE = realStore; listState = savedState; selectedId = savedSel;
+    refreshAll(); buildSettingsForm();
+    setStatus("저장된 기준값으로 계산 중 · 확인 필요 " + flaggedCount(DATA) + "건");
+    return r;
+  }
+
   function renderSelfTest(){
-    var results = SelfTest.run().concat([uiChecks(), detailChecks()]), total = 0, passed = 0, html = "";
+    var results = SelfTest.run().concat([uiChecks(), detailChecks(), settingsChecks()]), total = 0, passed = 0, html = "";
     results.forEach(function(r){
       total += r.total; passed += r.passed;
       var ok = r.fails.length === 0;
@@ -1541,7 +1775,7 @@ var DetailView = (function(C, L){
     document.getElementById("st-list").innerHTML = html;
     document.getElementById("st-score").textContent = passed + " / " + total;
     document.getElementById("st-note").textContent = allOk
-      ? "정답.md 예시 A~J와 가상 데이터 점검이 모두 정답과 일치합니다 (금액 1원·비율 0.01%p 미만)"
+      ? "정답.md 예시 A~L, 가상 데이터 점검, 화면 점검이 모두 정답과 일치합니다 (금액 1원·비율 0.01%p 미만)"
       : "정답과 다른 항목이 있습니다. 다음 조각으로 넘어가지 않습니다";
     document.querySelector(".st-summary").classList.toggle("fail", !allOk);
     return { total: total, passed: passed };
@@ -1563,7 +1797,9 @@ var DetailView = (function(C, L){
         '<div class="ex-src">출처 · ' + esc(e.source) + '</div></article>';
     }).join("") : '<div class="card">예외가 없습니다.</div>';
   }
-  var DATA = DemoData.get();
+  var STORE = Store.create(Store.browserStorage());           // 조각 6: 저장된 기준값·메모
+  var DATA = DemoData.get(STORE.settings());
+  var CONF = {};
   renderExceptions(DATA);
 
   /* ---- 프로젝트 목록 (조각 4 · spec R2) ---- */
@@ -1573,8 +1809,10 @@ var DetailView = (function(C, L){
 
   function dirClass(v){ return v > 0.5 ? "over" : v < -0.5 ? "under" : "zero"; }
   function statusBadge(t){
+    var circ = t.flags.map(function(f){ return CIRC[f]; }).join("");
     if (!t.checkOk) return '<span class="badge bad">검산 불일치</span>';
-    if (t.flags.length) return '<span class="badge flag">확인 필요 ' + t.flags.map(function(f){ return CIRC[f]; }).join("") + "</span>";
+    if (CONF[t.id]) return '<span class="badge done">확정 ✓' + (circ ? " " + circ : "") + "</span>";
+    if (t.flags.length) return '<span class="badge flag">확인 필요 ' + circ + "</span>";
     return '<span class="badge ok">정상</span>';
   }
   function gauge(t, maxAbs){
@@ -1593,13 +1831,14 @@ var DetailView = (function(C, L){
     }
   }
 
-  function renderList(){
-    var M = L.model(DATA, listState), S = M.summary;
+  function renderList(keepDetail){
+    CONF = STORE.confirmedSet();
+    var M = L.model(DATA, listState, CONF), S = M.summary;
     // 요약
     document.getElementById("k-diff").textContent = L.wonShort(S.diff, true) + "원";
     document.getElementById("k-diff-full").textContent = C.won(S.diff, true) + "원";
     document.getElementById("k-flag").textContent = S.flagged + "건";
-    document.getElementById("k-flag-sub").textContent = S.count + "개 중 · 확정 0 · 예외 " + M.exceptions;
+    document.getElementById("k-flag-sub").textContent = S.count + "개 중 · 확정 " + S.confirmed + " · 예외 " + M.exceptions;
     document.getElementById("k-pre").textContent = L.wonShort(S.pre) + "원";
     document.getElementById("k-pre-full").textContent = C.won(S.pre) + "원";
     document.getElementById("k-post").textContent = L.wonShort(S.post) + "원";
@@ -1617,7 +1856,7 @@ var DetailView = (function(C, L){
 
     // 폰: 카드
     var cards = M.rows.map(function(t){
-      return '<button type="button" class="pj' + (t.flags.length ? " flag" : "") + (t.id === selectedId ? " sel" : "") + '" data-id="' + esc(t.id) + '">' +
+      return '<button type="button" class="pj' + (t.flags.length && !CONF[t.id] ? " flag" : "") + (t.id === selectedId ? " sel" : "") + '" data-id="' + esc(t.id) + '">' +
         '<span class="pj-top"><span><span class="pj-id">' + esc(t.id) + '</span><span class="pj-kind">' + esc(t.kind) + " · " + t.doneMonth + '</span></span>' +
         '<span class="pj-diff num ' + dirClass(t.diff) + '">' + C.won(t.diff, true) + "</span></span>" +
         gauge(t, M.maxAbs) +
@@ -1632,7 +1871,7 @@ var DetailView = (function(C, L){
 
     // PC: 표
     var trs = M.rows.map(function(t){
-      return '<tr class="trow' + (t.flags.length ? " flag" : "") + (t.id === selectedId ? " sel" : "") + '" tabindex="0" data-id="' + esc(t.id) + '">' +
+      return '<tr class="trow' + (t.flags.length && !CONF[t.id] ? " flag" : "") + (t.id === selectedId ? " sel" : "") + '" tabindex="0" data-id="' + esc(t.id) + '">' +
         '<td class="first"><div class="t-id">' + esc(t.id) + '</div><div class="t-sub">' + esc(t.kind) + " · " + t.doneMonth + "</div></td>" +
         '<td class="r num"><div>' + C.won(t.post) + '</div><div class="t-sub">견적 ' + C.won(t.pre) + "</div></td>" +
         '<td class="r"><div class="t-diff num pj-diff ' + dirClass(t.diff) + '">' + C.won(t.diff, true) + '</div><div class="t-sub num">' + L.rateText(t.rate, t.diff) + "</div>" + gauge(t, M.maxAbs) + "</td>" +
@@ -1646,7 +1885,7 @@ var DetailView = (function(C, L){
       ? '<table class="pj-table"><thead><tr><th>프로젝트</th><th class="r">실제 · 견적</th><th class="r">차이</th><th>상태</th></tr></thead><tbody>' + trs.concat(heldTrs).join("") + "</tbody></table>"
       : '<div class="empty">조건에 맞는 프로젝트가 없습니다</div>';
 
-    renderDetailStub();
+    if (!keepDetail) renderDetailStub();
     // 버튼 상태
     document.querySelectorAll("[data-dir]").forEach(function(b){ b.setAttribute("aria-pressed", String(b.getAttribute("data-dir") === listState.dir)); });
     document.querySelectorAll("[data-sort]").forEach(function(b){ b.setAttribute("aria-pressed", String(b.getAttribute("data-sort") === listState.sort)); });
@@ -1668,16 +1907,19 @@ var DetailView = (function(C, L){
   function renderDetailStub(){        // 넓은 PC 오른쪽 칸
     var pane = document.getElementById("pj-detail");
     pane.innerHTML = selectedId ? detailHtml(selectedId) : '<p class="pane-empty">목록에서 프로젝트를 고르세요</p>';
+    if (selectedId) mountMemo(pane, selectedId);
   }
   function select(id){
     selectedId = id;
     document.querySelectorAll(".pj[data-id], tr.trow[data-id]").forEach(function(el){ el.classList.toggle("sel", el.getAttribute("data-id") === id); });
     renderDetailStub();
   }
+  var sheetId = null;
   function openSheet(id){
-    lastFocus = document.activeElement;
+    lastFocus = document.activeElement; sheetId = id;
     document.getElementById("sheet-title").textContent = id;
     sheetBody.innerHTML = detailHtml(id);
+    mountMemo(sheetBody, id);
     sheet.hidden = false; sheet.scrollTop = 0;
     document.body.classList.add("sheet-open");
     document.getElementById("sheet-close").focus();
@@ -1707,6 +1949,112 @@ var DetailView = (function(C, L){
   }
   document.getElementById("sheet-close").addEventListener("click", closeDetail);
   document.addEventListener("keydown", function(e){ if (e.key === "Escape" && !sheet.hidden) closeDetail(); });
+
+
+  /* ---- 원인 메모 · 확정 (조각 6 · spec R4.2) ---- */
+  function mountMemo(container, id){
+    var slot = container.querySelector("[data-memo-slot]"), t = findProject(id);
+    if (!slot || !t) return;
+    slot.innerHTML = '<section class="dt-sec memo"><h3>원인 메모 · 확정</h3>' +
+      '<textarea class="memo-text" aria-label="원인 메모" placeholder="확인한 원인을 적어 주세요 (예: 긴급 구매로 동선 단가 상승 — 구매팀 확인)"></textarea>' +
+      '<div class="memo-actions"><button type="button" class="btn memo-fill">설명 문장 넣기</button><button type="button" class="btn primary memo-confirm">확정하기</button></div>' +
+      '<p class="memo-state" aria-live="polite"></p><p class="hint">원인은 자동으로 정하지 않습니다. 메모를 적은 뒤에만 확정할 수 있습니다.</p></section>';
+    var sec = slot.firstChild, ta = sec.querySelector(".memo-text"), btn = sec.querySelector(".memo-confirm"), st = sec.querySelector(".memo-state"), timer = null;
+    ta.value = STORE.note(id).memo;
+    function paint(msg, err){
+      var cur = STORE.note(id);
+      sec.classList.toggle("done", cur.confirmed);
+      btn.textContent = cur.confirmed ? "확정 취소" : "확정하기";
+      st.className = "memo-state" + (err ? " err" : "");
+      st.textContent = msg || ((cur.at ? (cur.confirmed ? "확정됨 · " : "메모 저장됨 · ") + cur.at : "아직 메모가 없습니다") +
+        (STORE.canSave() ? "" : " · 이 브라우저에서는 저장되지 않음"));
+    }
+    function saveMemo(){ var before = STORE.note(id).confirmed; STORE.setMemo(id, ta.value); paint(); if (before !== STORE.note(id).confirmed) renderList(true); }
+    ta.addEventListener("input", function(){ clearTimeout(timer); timer = setTimeout(saveMemo, 300); });
+    ta.addEventListener("blur", function(){ clearTimeout(timer); saveMemo(); });
+    sec.querySelector(".memo-fill").addEventListener("click", function(){
+      ta.value = (ta.value.trim() ? ta.value.replace(/\s+$/, "") + "\n" : "") + t.sentence;
+      clearTimeout(timer); saveMemo(); ta.focus();
+    });
+    btn.addEventListener("click", function(){
+      clearTimeout(timer); STORE.setMemo(id, ta.value);
+      var res = STORE.setConfirmed(id, !STORE.note(id).confirmed);
+      if (!res.ok){ paint(res.message, true); ta.focus(); return; }
+      paint(); renderList(true); renderNotesInfo();
+    });
+    paint();
+  }
+
+  /* ---- 설정: 운영 담당자 · 기준값 (조각 6 · spec R4.4, R4.7) ---- */
+  function fmtField(v, f){ return f.kind === "won" ? Number(v).toLocaleString("ko-KR") : String(v); }
+  function buildSettingsForm(){
+    var disp = Store.toDisplay(STORE.settings());
+    function field(f){
+      return '<label class="set-field" data-key="' + f.key + '"><span>' + f.label + '</span><span class="set-unit">' +
+        '<input type="text" inputmode="decimal" name="' + f.key + '" value="' + esc(fmtField(disp[f.key], f)) + '" autocomplete="off"><i>' + f.unit + "</i></span></label>";
+    }
+    var flagKeys = ["rateMin", "amtMin", "amtMax", "unexplRatio", "unexplMin", "staleMonths"], kindKeys = ["kindUnitUp", "kindMarginDrop"];
+    document.getElementById("set-grid-flag").innerHTML = Store.FIELDS.filter(function(f){ return flagKeys.indexOf(f.key) >= 0; }).map(field).join("");
+    document.getElementById("set-grid-kind").innerHTML = Store.FIELDS.filter(function(f){ return kindKeys.indexOf(f.key) >= 0; }).map(field).join("");
+    document.getElementById("set-owner").value = STORE.state.owner;
+    document.getElementById("set-errors").hidden = true;
+  }
+  function flaggedCount(D){ return D.projects.filter(function(t){ return t.flags.length; }).length; }
+  function setStatus(msg, warn){
+    var el = document.getElementById("set-status");
+    el.textContent = msg + (STORE.canSave() ? "" : " · 이 브라우저에서는 저장되지 않음 (새로고침하면 사라짐)");
+    el.className = "set-status" + (warn || !STORE.canSave() ? " warn" : "");
+  }
+  function renderOwner(){
+    var name = STORE.state.owner || "미지정";
+    document.getElementById("owner-side").textContent = name;
+    var chip = document.getElementById("owner-chip");
+    if (chip) chip.textContent = "운영 담당자 · " + name;
+  }
+  function renderNotesInfo(){
+    var notes = STORE.state.notes, ids = Object.keys(notes);
+    var memo = ids.filter(function(k){ return notes[k].memo && notes[k].memo.trim(); }).length, done = ids.filter(function(k){ return notes[k].confirmed; }).length;
+    document.getElementById("set-notes-info").textContent = "메모 " + memo + "건 · 확정 " + done + "건 · " +
+      (STORE.canSave() ? "이 브라우저에 저장됨 (다른 기기와 공유되지 않음)" : "이 브라우저에서는 저장되지 않음");
+  }
+  function refreshAll(){
+    DATA = DemoData.get(STORE.settings());
+    renderExceptions(DATA); renderList(); renderOwner(); renderNotesInfo();
+    if (!sheet.hidden && sheetId){ sheetBody.innerHTML = detailHtml(sheetId); mountMemo(sheetBody, sheetId); }
+    if (typeof renderKinds === "function") renderKinds();
+  }
+  document.getElementById("set-form").addEventListener("submit", function(e){
+    e.preventDefault();
+    var input = {};
+    Store.FIELDS.forEach(function(f){ input[f.key] = document.querySelector('#set-form input[name="' + f.key + '"]').value; });
+    var before = flaggedCount(DATA), res = STORE.applySettings(input, document.getElementById("set-owner").value);
+    document.querySelectorAll("#set-form .set-field").forEach(function(el){ el.classList.remove("bad"); });
+    var box = document.getElementById("set-errors");
+    if (!res.ok){
+      box.hidden = false;
+      box.innerHTML = "적용하지 않았습니다. 아래를 고쳐 주세요.<ul>" + res.errors.map(function(m){ return "<li>" + esc(m) + "</li>"; }).join("") + "</ul>";
+      Store.FIELDS.forEach(function(f){
+        if (res.errors.some(function(m){ return m.indexOf(f.label + ":") === 0 || (m.indexOf("상한은") >= 0 && (f.key === "amtMin" || f.key === "amtMax")); }))
+          document.querySelector('#set-form .set-field[data-key="' + f.key + '"]').classList.add("bad");
+      });
+      setStatus("기준값을 바꾸지 않았습니다", true);
+      return;
+    }
+    box.hidden = true;
+    refreshAll(); buildSettingsForm();
+    setStatus("적용됨 · 확인 필요 " + before + "건 → " + flaggedCount(DATA) + "건");
+  });
+  document.getElementById("set-reset").addEventListener("click", function(){
+    var before = flaggedCount(DATA);
+    STORE.resetSettings(); refreshAll(); buildSettingsForm();
+    setStatus("기본값으로 되돌림 · 확인 필요 " + before + "건 → " + flaggedCount(DATA) + "건");
+  });
+  document.getElementById("set-clear").addEventListener("click", function(){
+    if (!window.confirm("모든 메모와 확정 기록을 지울까요? 되돌릴 수 없습니다.")) return;
+    STORE.clearNotes(); refreshAll(); setStatus("메모·확정 기록을 지웠습니다");
+  });
+  buildSettingsForm(); renderOwner(); renderNotesInfo();
+  setStatus("저장된 기준값으로 계산 중 · 확인 필요 " + flaggedCount(DATA) + "건");
 
   fillSelects();
   document.querySelectorAll("[data-dir]").forEach(function(b){ b.addEventListener("click", function(){ listState.dir = b.getAttribute("data-dir"); renderList(); }); });
