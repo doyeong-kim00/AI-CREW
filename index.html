@@ -182,7 +182,7 @@ main{
 .filters{display:grid; gap:8px; margin:14px 0 6px}
 .sel-row{display:grid; grid-template-columns:1fr 1fr; gap:8px}
 .seg{display:flex; background:var(--surface); border:var(--border); border-radius:var(--radius); overflow:hidden}
-.seg button{flex:1; min-height:44px; border:0; background:none; font:inherit; font-size:13.5px; font-weight:800; color:var(--ink); cursor:pointer; padding:0 6px}
+.seg button{flex:1; min-height:44px; white-space:nowrap; border:0; background:none; font:inherit; font-size:13.5px; font-weight:800; color:var(--ink); cursor:pointer; padding:0 6px}
 .seg button + button{border-left:1.5px solid var(--line-soft)}
 .seg button[aria-pressed="true"]{background:var(--ink); color:var(--yellow)}
 .sel select{
@@ -205,7 +205,6 @@ main{
 }
 .pj.flag{padding-left:22px}
 .pj.flag::before{content:""; position:absolute; left:0; top:0; bottom:0; width:8px; background:var(--hazard)}
-.pj.sel{box-shadow:0 0 0 3px var(--yellow) inset}
 .pj-top{display:flex; justify-content:space-between; align-items:baseline; gap:10px}
 .pj-id{font-size:16px; font-weight:900; letter-spacing:-.2px}
 .pj-kind{font-size:12px; font-weight:700; color:var(--muted); margin-left:6px}
@@ -306,14 +305,14 @@ main{
   .page-head h1{font-size:34px}
   .page-meta{display:flex}
   .cards-kind{grid-template-columns:repeat(3,minmax(0,1fr))}
-  .split{grid-template-columns:minmax(0,1.15fr) minmax(0,1fr); gap:14px; align-items:start}
-  .detail-pane{display:grid; position:sticky; top:24px}
-  .filters{grid-template-columns:1.2fr 1.4fr 1.4fr; align-items:start}
+  .split{display:block}
+  .detail-pane{display:none}
   .pj-cards{display:none}
   .pj-table-wrap{display:block; background:var(--surface); border:var(--border); border-radius:var(--radius); overflow:hidden}
   .pj-table{width:100%; border-collapse:collapse; font-size:13.5px}
   .pj-table th{background:var(--ink); color:#fff; font-size:12px; font-weight:800; text-align:left; padding:9px 12px}
-  .pj-table th.r, .pj-table td.r{text-align:right}
+  .pj-table th.r, .pj-table td.r{text-align:right; white-space:nowrap}
+  .pj-table .t-id, .pj-table .t-diff, .pj-table .badge{white-space:nowrap}
   .pj-table td{padding:10px 12px; border-top:1.5px solid var(--line-soft); vertical-align:middle}
   .pj-table tr.trow{cursor:pointer}
   .pj-table tr.trow:hover td{background:var(--surface-2)}
@@ -326,6 +325,12 @@ main{
   .pj-table .t-diff{font-weight:900; font-size:15px}
   .pj-table .gauge{display:block; height:6px; margin-top:4px}
   .pj-table tr.hold td{background:var(--surface-2); color:var(--muted)}
+}
+/* ---------- 넓은 PC (1240px 이상): 목록 + 오른쪽 상세 (R2.5) ---------- */
+@media (min-width:1240px){
+  .split{display:grid; grid-template-columns:minmax(0,1.15fr) minmax(0,1fr); gap:14px; align-items:start}
+  .detail-pane{display:grid; position:sticky; top:24px}
+  .filters{grid-template-columns:1.2fr 1.4fr 1.4fr; align-items:start}
 }
 </style>
 </head>
@@ -413,7 +418,7 @@ main{
 
     <!-- 정렬·필터 (R2.2 · R2.3) -->
     <div class="filters" role="group" aria-label="정렬과 필터">
-      <div class="seg" role="radiogroup" aria-label="방향">
+      <div class="seg" role="group" aria-label="방향">
         <button type="button" data-dir="all" aria-pressed="true">전체</button>
         <button type="button" data-dir="over" aria-pressed="false">+ 초과만</button>
         <button type="button" data-dir="under" aria-pressed="false">− 미달만</button>
@@ -423,7 +428,7 @@ main{
         <label class="sel"><span class="sr-only">생산월</span><select id="f-month"><option value="">전체 생산월</option></select></label>
       </div>
       <div class="sel-row">
-        <div class="seg" role="radiogroup" aria-label="정렬">
+        <div class="seg" role="group" aria-label="정렬">
           <button type="button" data-sort="amount" aria-pressed="true">금액 순</button>
           <button type="button" data-sort="rate" aria-pressed="false">차이율 순</button>
         </div>
@@ -882,6 +887,25 @@ var SelfTest = (function(C){
         });
         ck("요약 = 표시 행의 합 (필터 5가지)", okAll, true);
         ck("요약 줄임 표기", L.wonShort(1164675998.3) + " / " + L.wonShort(43987226.1, true), "11.6억 / +4,399만");
+        // J-2 (조각 4 점검)
+        var D2 = { projects: [
+            { id: "X1", kind: "K", doneMonth: "2026-01", pre: 100, post: 150, diff: 50, rate: 0.5, flags: [1], checkOk: true },
+            { id: "X2", kind: "K", doneMonth: "2026-01", pre: 100, post: 300, diff: 200, rate: 2, flags: [], checkOk: false } ],
+          held: [ { id: "H1", kind: "K", doneMonth: "2026-01", reasons: [] }, { id: "H2", kind: "Z", doneMonth: "2026-02", reasons: [] } ],
+          exceptions: [] };
+        var x = L.model(D2, {});
+        ck("검산 불일치 행도 목록엔 보임", ids(x, 9), "X2,X1");
+        ck("검산 불일치는 요약에서 제외", x.summary.diff + " / " + x.summary.count, "50 / 1");
+        ck("보류도 기종 필터 따름", L.model(D2, { kind: "K" }).held.map(function(h){ return h.id; }).join(","), "H1");
+        ck("보류도 생산월 필터 따름", L.model(D2, { month: "2026-02" }).held.map(function(h){ return h.id; }).join(","), "H2");
+        ck("줄임 표기 경계", L.wonShort(99995000) + " / " + L.wonShort(99940000), "1.0억 / 9,994만");
+        var p3008 = D.projects.filter(function(t){ return t.id === "PJ-3008"; })[0];
+        ck("아주 작은 차이율 부호", L.rateText(p3008.rate, p3008.diff), "−0.01% 미만");
+        var bad = L.parseFilters("projects?kind=%E0%A4", D.kinds);
+        ck("깨진 주소 → 필터 없음", JSON.stringify(bad), JSON.stringify(L.DEFAULT));
+        var good = L.parseFilters("projects?kind=HS-SV-2.0kW&dir=under&sort=rate", D.kinds);
+        ck("정상 주소 해석", good.kind + "|" + good.dir + "|" + good.sort, "HS-SV-2.0kW|under|rate");
+        ck("필터 없는 주소 → 지금 상태 유지(null)", L.parseFilters("projects", D.kinds), null);
     }},
     { id: "DATA", title: "가상 데이터 · 예외 판정 (spec R0, R4.3)", run: function(ck){
         var D = DemoData.get();
@@ -1184,14 +1208,38 @@ var ListModel = (function(C){
              total: D.projects.length, totalHeld: D.held.length, exceptions: D.exceptions.length };
   }
 
-  // 요약 숫자 줄이기 (R2.7): 억·만
+  // 요약 숫자 줄이기 (R2.7): 억·만. 반올림해서 10,000만이 되면 억으로 (조각 4 점검)
   function wonShort(v, signed){
     var a = Math.abs(v), sign = signed ? (v > 0 ? "+" : v < 0 ? "−" : "") : (v < 0 ? "−" : "");
-    if (a >= 1e8) return sign + (a / 1e8).toFixed(1) + "억";
+    if (a >= 1e8 || Math.round(a / 1e4) >= 10000) return sign + (a / 1e8).toFixed(1) + "억";
     if (a >= 1e4) return sign + Math.round(a / 1e4).toLocaleString("ko-KR") + "만";
     return sign + Math.round(a).toLocaleString("ko-KR");
   }
-  return { DEFAULT: DEFAULT, model: model, wonShort: wonShort };
+
+  // 차이율 표시 (R2.8): 0.01%보다 작지만 0이 아니면 부호를 살린다
+  function rateText(rate, diff){
+    if (rate === null || !isFinite(rate)) return "—";
+    if (Math.abs(rate) < 0.00005 && Math.abs(diff) >= 0.5) return (diff < 0 ? "−" : "+") + "0.01% 미만";
+    return C.pct(rate, 2, true);
+  }
+
+  // 주소 필터 해석 (R2.9): 잘못된 값은 버리고 절대 멈추지 않는다. 필터가 없으면 null
+  function parseFilters(hash, kinds){
+    var parts = String(hash || "").split("?");
+    if (parts[0] !== "projects" || !parts[1]) return null;
+    var next = Object.assign({}, DEFAULT);
+    parts[1].split("&").forEach(function(p){
+      var kv = p.split("="), k, v;
+      try { k = decodeURIComponent(kv[0]); v = decodeURIComponent(kv[1] || ""); } catch (e) { return; }
+      if (k === "kind" && kinds.indexOf(v) >= 0) next.kind = v;
+      if (k === "month" && /^\d{4}-\d{2}$/.test(v)) next.month = v;
+      if (k === "flagged") next.flagged = v === "1";
+      if (k === "dir" && (v === "over" || v === "under")) next.dir = v;
+      if (k === "sort" && v === "rate") next.sort = "rate";
+    });
+    return next;
+  }
+  return { DEFAULT: DEFAULT, model: model, wonShort: wonShort, rateText: rateText, parseFilters: parseFilters };
 })(CostCalc);
 </script>
 
@@ -1219,8 +1267,29 @@ var ListModel = (function(C){
 
   /* ---- 자가 검산 결과 그리기 (설정 화면) ---- */
   function esc(s){ return String(s).replace(/[&<>"]/g, function(c){ return { "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;" }[c]; }); }
+  // 화면에 실제로 그려진 결과 점검 (정답 J-2, 조각 4 점검) — 화면 그리기 코드까지 확인
+  function uiChecks(){
+    var r = { id: "UI", title: "화면 그리기 점검 · 프로젝트 목록 (정답 J-2)", total: 0, passed: 0, fails: [] };
+    function ck(label, got, want){ r.total++; if (got === want) r.passed++; else r.fails.push(label + ": 결과 " + got + " / 정답 " + want); }
+    try {
+      var saved = Object.assign({}, listState);
+      listState = Object.assign({}, L.DEFAULT); renderList();
+      var cards = document.querySelectorAll("#pj-cards .pj[data-id]"), rows = document.querySelectorAll("#pj-table tr.trow");
+      ck("폰 카드 수", cards.length, 70);
+      ck("폰 보류 카드 수", document.querySelectorAll("#pj-cards .pj.hold").length, 2);
+      ck("첫 카드", cards[0] && cards[0].getAttribute("data-id"), "PJ-3060");
+      ck("PC 표 행 수", rows.length, 70);
+      ck("첫 행", rows[0] && rows[0].getAttribute("data-id"), "PJ-3060");
+      ck("총차이 칸", document.getElementById("k-diff").textContent, "+4,399만원");
+      listState = Object.assign({}, L.DEFAULT, { kind: "HS-SV-2.0kW", dir: "under", month: "2026-06" }); renderList();
+      ck("결과 0건 안내", !!document.querySelector("#pj-cards .empty") && !!document.querySelector("#pj-table .empty"), true);
+      listState = saved; renderList();
+    } catch (e) { r.total++; r.fails.push("실행 오류: " + e.message); }
+    return r;
+  }
+
   function renderSelfTest(){
-    var results = SelfTest.run(), total = 0, passed = 0, html = "";
+    var results = SelfTest.run().concat([uiChecks()]), total = 0, passed = 0, html = "";
     results.forEach(function(r){
       total += r.total; passed += r.passed;
       var ok = r.fails.length === 0;
@@ -1313,7 +1382,7 @@ var ListModel = (function(C){
         '<span class="pj-top"><span><span class="pj-id">' + esc(t.id) + '</span><span class="pj-kind">' + esc(t.kind) + " · " + t.doneMonth + '</span></span>' +
         '<span class="pj-diff num ' + dirClass(t.diff) + '">' + C.won(t.diff, true) + "</span></span>" +
         gauge(t, M.maxAbs) +
-        '<span class="pj-meta">' + statusBadge(t) + '<span class="num">' + C.pct(t.rate, 2, true) + "</span></span>" +
+        '<span class="pj-meta">' + statusBadge(t) + '<span class="num">' + L.rateText(t.rate, t.diff) + "</span></span>" +
         '<span class="pj-amt num">견적 ' + C.won(t.pre) + " → 실제 " + C.won(t.post) + "</span></button>";
     });
     var heldCards = M.held.map(function(h){
@@ -1327,7 +1396,7 @@ var ListModel = (function(C){
       return '<tr class="trow' + (t.flags.length ? " flag" : "") + (t.id === selectedId ? " sel" : "") + '" tabindex="0" data-id="' + esc(t.id) + '">' +
         '<td class="first"><div class="t-id">' + esc(t.id) + '</div><div class="t-sub">' + esc(t.kind) + " · " + t.doneMonth + "</div></td>" +
         '<td class="r num"><div>' + C.won(t.post) + '</div><div class="t-sub">견적 ' + C.won(t.pre) + "</div></td>" +
-        '<td class="r"><div class="t-diff num pj-diff ' + dirClass(t.diff) + '">' + C.won(t.diff, true) + '</div><div class="t-sub num">' + C.pct(t.rate, 2, true) + "</div>" + gauge(t, M.maxAbs) + "</td>" +
+        '<td class="r"><div class="t-diff num pj-diff ' + dirClass(t.diff) + '">' + C.won(t.diff, true) + '</div><div class="t-sub num">' + L.rateText(t.rate, t.diff) + "</div>" + gauge(t, M.maxAbs) + "</td>" +
         "<td>" + statusBadge(t) + "</td></tr>";
     });
     var heldTrs = M.held.map(function(h){
@@ -1335,7 +1404,7 @@ var ListModel = (function(C){
         '</div></td><td class="r">—</td><td class="r">—</td><td><span class="badge hold">계산 보류</span></td></tr>';
     });
     document.getElementById("pj-table").innerHTML = (trs.length || heldTrs.length)
-      ? '<table class="pj-table"><thead><tr><th>프로젝트</th><th class="r">사후 (견적)</th><th class="r">차이</th><th>상태</th></tr></thead><tbody>' + trs.concat(heldTrs).join("") + "</tbody></table>"
+      ? '<table class="pj-table"><thead><tr><th>프로젝트</th><th class="r">실제 · 견적</th><th class="r">차이</th><th>상태</th></tr></thead><tbody>' + trs.concat(heldTrs).join("") + "</tbody></table>"
       : '<div class="empty">조건에 맞는 프로젝트가 없습니다</div>';
 
     renderDetailStub();
@@ -1368,20 +1437,10 @@ var ListModel = (function(C){
     box.addEventListener("keydown", function(e){ if (e.key === "Enter" || e.key === " "){ var el = e.target.closest("tr[data-id]"); if (el){ e.preventDefault(); select(el.getAttribute("data-id")); } } });
   });
 
-  // 주소로 필터 받기: #projects?kind=HS-SV-2.0kW&month=2026-06 (조각 7 기종 화면에서 사용)
+  // 주소로 필터 받기: #projects?kind=HS-SV-2.0kW&month=2026-06 (조각 7 기종 화면에서 사용, R2.9)
   function applyHashFilters(){
-    var h = location.hash.slice(1), q = h.split("?")[1];
-    if (h.split("?")[0] !== "projects" || !q) return;
-    var next = Object.assign({}, L.DEFAULT);
-    q.split("&").forEach(function(p){
-      var kv = p.split("="), k = decodeURIComponent(kv[0]), v = decodeURIComponent(kv[1] || "");
-      if (k === "kind" && DATA.kinds.indexOf(v) >= 0) next.kind = v;
-      if (k === "month" && /^\d{4}-\d{2}$/.test(v)) next.month = v;
-      if (k === "flagged") next.flagged = v === "1";
-      if (k === "dir" && (v === "over" || v === "under")) next.dir = v;
-      if (k === "sort" && v === "rate") next.sort = "rate";
-    });
-    listState = next;
+    var next = L.parseFilters(location.hash.slice(1), DATA.kinds);
+    if (next) listState = next;
   }
   applyHashFilters();
   renderList();
