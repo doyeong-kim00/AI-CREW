@@ -397,7 +397,7 @@ main{
       <div class="setting-row"><div class="label"><b>기종 주의 기준</b><span>개당 원가 +5% · 이익률 −5%p</span></div><span class="sk sk-line w30" aria-hidden="true"></span></div>
     </div>
 
-    <div class="section-label"><span>자가 검산 (정답.md 예시 A~H)</span></div>
+    <div class="section-label"><span>자가 검산 (정답.md 예시 A~I + 가상 데이터)</span></div>
     <div class="selftest" id="selftest" aria-live="polite">
       <div class="kpi dark st-summary"><span class="kpi-label">계산 엔진 검산</span><span class="st-score num" id="st-score">—</span><span class="st-note" id="st-note">검산 중…</span></div>
       <div class="card list" id="st-list"></div>
@@ -725,6 +725,37 @@ var SelfTest = (function(C){
         ck("경과 6개월 → ④ 해당", C.project(h("2026-04"), idx).flags.indexOf(4) >= 0, true);
         ck("경과 5개월 → ④ 아님", C.project(h("2026-03"), idx).flags.indexOf(4) >= 0, false);
     }},
+    { id: "I", title: "예시 I · 원본 행 검사 규칙", run: function(ck){
+        function head(pj, qty){ return { pj: pj, ver: "v1", quoteDate: "2026-01-10", baseMonth: "2026-01", kind: "TEST", customer: "시험", qty: qty === undefined ? 1 : qty, price: 1000000 }; }
+        var QCU = { code: "CU", name: "동선", unit: "kg", sq: 10, sp: 15000, index: null }, QPR = { code: "PROC", name: "가공비", unit: "식", amount: 100000 };
+        var ACU = { code: "CU", unit: "kg", aq: 11, ap: 18000 }, APR = { code: "PROC", unit: "식", amount: 110000 }, AETC = { code: "ETC", unit: "식", amount: 5000 };
+        var quotes = [], actuals = [];
+        function add(pj, qMats, aMats, qty){
+          qMats.forEach(function(m){ quotes.push(Object.assign(head(pj, qty), m)); });
+          aMats.forEach(function(m){ actuals.push(Object.assign({ pj: pj, doneMonth: "2026-03" }, m)); });
+        }
+        add("I-OK", [QCU, QPR], [ACU, APR]);
+        add("I-DUP", [QCU, QPR], [ACU, ACU, APR]);
+        add("I-CONFLICT", [QCU, QPR], [ACU, Object.assign({}, ACU, { aq: 12 }), APR]);
+        add("I-MAT-NOACT", [QCU, QPR], [ACU]);
+        add("I-MAT-NOQUO", [QCU, QPR], [ACU, APR, AETC]);
+        add("I-QTY0", [QCU, QPR], [ACU, APR], 0);
+        var ins = DemoData.inspect({ quotes: quotes, actuals: actuals, index: {} }), D = DemoData.compute(ins);
+        var got = D.exceptions.map(function(e){ return e.pj + "|" + e.reason + "|" + e.action + "|" + e.code; }).sort().join(" / ");
+        var want = ["I-CONFLICT|중복 행|계산 보류|CU", "I-DUP|중복 행|첫 행만 사용|CU", "I-MAT-NOACT|실적 없음|계산 보류|PROC",
+                    "I-MAT-NOQUO|견적 없음|계산 보류|ETC", "I-QTY0|빈 값|계산 보류|"].sort().join(" / ");
+        ck("예외 5건 (사유·처리·재료)", got, want);
+        ck("계산됨", D.projects.map(function(t){ return t.id; }).sort().join(","), "I-DUP,I-OK");
+        ck("계산 보류", D.held.map(function(h){ return h.id; }).sort().join(","), "I-CONFLICT,I-MAT-NOACT,I-MAT-NOQUO,I-QTY0");
+        var dup = D.projects.filter(function(t){ return t.id === "I-DUP"; })[0];
+        ck("I-DUP 차이 (중복 행 안 더함)", dup && dup.diff, 58000, WON);
+        // 설정을 바꿔 다시 계산 → 원본 검사는 그대로, 확인 필요만 바뀜 (R4.6)
+        var real = DemoData.get(), loose = DemoData.get({ rateMin: 0.5 });
+        var n1 = function(X){ return X.projects.filter(function(t){ return t.flags.indexOf(1) >= 0; }).length; };
+        ck("설정 변경 후 예외 수 그대로", loose.exceptions.length, real.exceptions.length, 0);
+        ck("설정 변경 후 계산 보류 그대로", loose.held.length, real.held.length, 0);
+        ck("설정 변경 → 사유 ① 줄어듦 (" + n1(real) + " → " + n1(loose) + ")", n1(loose) < n1(real), true);
+    }},
     { id: "DATA", title: "가상 데이터 · 예외 판정 (spec R0, R4.3)", run: function(ck){
         var D = DemoData.get();
         var reasons = {}; D.exceptions.forEach(function(e){ reasons[e.reason + "|" + e.pj] = e.action; });
@@ -894,17 +925,25 @@ var DemoData = (function(C){
   function bad(v){ return typeof v !== "number" || !isFinite(v) || v <= 0; }
   function key(r){ return r.pj + "|" + r.code; }
 
-  function buildData(raw, settings){
+  function same(a, b){ return JSON.stringify(a) === JSON.stringify(b); }
+
+  // 1단계: 원본 검사 (설정과 무관, R4.6) → 계산할 프로젝트 / 계산 보류 / 예외
+  function inspect(raw){
     var exceptions = [], held = [], projects = [];
     function ex(reason, action, pj, code, source, detail){ exceptions.push({ reason: reason, action: action, pj: pj, code: code || "", source: source, detail: detail }); }
+    var conflict = {};   // 값이 다른 중복이 있는 프로젝트 → 계산 보류
 
-    // 1) 중복 행: 같은 출처에서 프로젝트·재료가 같은 두 번째 행부터 예외, 첫 행만 사용
+    // 중복 행: 값이 같으면 첫 행만 사용, 값이 다르면 충돌 → 계산 보류 (어느 쪽이 맞는지 추측하지 않음)
     function dedupe(rows, source){
       var seen = {}, out = [];
       rows.forEach(function(r){
         var k = key(r);
-        if (seen[k]){ ex("중복 행", "첫 행만 사용", r.pj, r.code, source, "같은 " + source + " 행이 한 번 더 있음 — 두 번째 행은 계산에 넣지 않음"); return; }
-        seen[k] = true; out.push(r);
+        if (seen[k]){
+          if (same(seen[k], r)) ex("중복 행", "첫 행만 사용", r.pj, r.code, source, "같은 " + source + " 행이 한 번 더 있음 — 두 번째 행은 계산에 넣지 않음");
+          else { ex("중복 행", "계산 보류", r.pj, r.code, source, "같은 프로젝트·재료의 " + source + " 행이 2개인데 값이 다름 — 어느 쪽이 맞는지 추측하지 않음"); conflict[r.pj] = true; }
+          return;
+        }
+        seen[k] = r; out.push(r);
       });
       return out;
     }
@@ -913,17 +952,22 @@ var DemoData = (function(C){
     function group(rows){ var g = {}; rows.forEach(function(r){ (g[r.pj] = g[r.pj] || []).push(r); }); return g; }
     var gq = group(quotes), ga = group(actuals);
 
-    // 2·3) 견적 없음 / 실적 없음 → 제외
+    // 프로젝트 단위 견적 없음 / 실적 없음 → 제외
     Object.keys(ga).forEach(function(pj){ if (!gq[pj]) ex("견적 없음", "제외", pj, "", "실적", "실적 " + ga[pj].length + "행은 있는데 견적이 없음"); });
     Object.keys(gq).forEach(function(pj){ if (!ga[pj]) ex("실적 없음", "제외", pj, "", "견적", "견적 " + gq[pj].length + "행은 있는데 실적이 없음"); });
 
     Object.keys(gq).filter(function(pj){ return ga[pj]; }).sort().forEach(function(pj){
       var qs = gq[pj], h = qs[0], problems = [], mats = [], doneMonth = ga[pj][0].doneMonth;
+      if (conflict[pj]) problems.push(["중복 행", "", "", null]);   // 예외는 dedupe에서 이미 기록
       if (bad(h.qty)) problems.push(["빈 값", "", "견적", "생산수량이 비었거나 0 이하"]);
       if (bad(h.price)) problems.push(["빈 값", "", "견적", "판매금액이 비었거나 0 이하"]);
+      // 재료 단위: 실적에만 있는 재료 행 → 견적 없음 (조용히 버리지 않음)
+      ga[pj].forEach(function(a){
+        if (!qs.some(function(q){ return q.code === a.code; })) problems.push(["견적 없음", a.code, "실적", a.code + " 실적 행이 있는데 견적에 이 재료가 없음"]);
+      });
       qs.forEach(function(q){
         var a = ga[pj].filter(function(r){ return r.code === q.code; })[0];
-        if (!a){ problems.push(["빈 값", q.code, "실적", q.name + " 실적 행이 없음"]); return; }
+        if (!a){ problems.push(["실적 없음", q.code, "견적", q.name + " 견적 행이 있는데 실적에 이 재료가 없음"]); return; }
         if (q.unit !== a.unit){ problems.push(["단위 불일치", q.code, "견적·실적", q.name + ": 견적 " + q.unit + " · 실적 " + a.unit + " (단위를 추측해 바꾸지 않음)"]); return; }
         if (q.amount !== undefined){
           if (bad(q.amount) || bad(a.amount)){ problems.push(["빈 값", q.code, "견적·실적", q.name + " 금액이 비었거나 0 이하"]); return; }
@@ -939,31 +983,42 @@ var DemoData = (function(C){
       var info = { id: pj, kind: h.kind, customer: h.customer, version: h.ver, quoteDate: h.quoteDate, qty: h.qty, price: h.price,
                    baseMonth: h.baseMonth, doneMonth: doneMonth, materials: mats };
       if (problems.length){
-        // 4·5) 단위 불일치 / 빈 값 → 계산 보류 (합계·기종 집계·확인 필요에서 제외)
-        problems.forEach(function(p){ ex(p[0], "계산 보류", pj, p[1], p[2], p[3]); });
+        // 단위 불일치 / 빈 값 / 재료 단위 누락 / 값이 다른 중복 → 계산 보류 (합계·기종 집계·확인 필요에서 제외)
+        problems.forEach(function(p){ if (p[3] !== null) ex(p[0], "계산 보류", pj, p[1], p[2], p[3]); });
         held.push({ id: pj, kind: h.kind, doneMonth: doneMonth, reasons: problems.map(function(p){ return p[0]; }) });
       } else {
         projects.push(info);
       }
     });
+    return { projects: projects, held: held, exceptions: exceptions, index: raw.index,
+             rawCount: { quotes: raw.quotes.length, actuals: raw.actuals.length } };
+  }
 
-    var computed = projects.map(function(p){
-      var t = C.project(p, raw.index, settings);
+  // 2단계: 확인 필요 계산 (설정이 바뀌면 이것만 다시, R4.6)
+  function compute(ins, settings){
+    var exceptions = ins.exceptions.slice();
+    var computed = ins.projects.map(function(p){
+      var t = C.project(p, ins.index, settings);
       t.customer = p.customer; t.version = p.version; t.quoteDate = p.quoteDate;
-      if (!t.checkOk) ex("검산 불일치", "합계에서 제외", p.id, "", "계산", "분해 합계와 총차이가 " + C.won(t.check, true) + "원 다름");
+      if (!t.checkOk) exceptions.push({ reason: "검산 불일치", action: "합계에서 제외", pj: p.id, code: "", source: "계산",
+                                         detail: "분해 합계와 총차이가 " + C.won(t.check, true) + "원 다름" });
       return t;
     });
     var lastMonth = computed.reduce(function(m, t){ return t.doneMonth > m ? t.doneMonth : m; }, "0000-00");
     var ORDER = ["중복 행", "견적 없음", "실적 없음", "단위 불일치", "빈 값", "검산 불일치"];
-    exceptions.sort(function(x, y){ return ORDER.indexOf(x.reason) - ORDER.indexOf(y.reason) || (x.pj < y.pj ? -1 : 1); });
-
-    return { projects: computed, held: held, exceptions: exceptions, index: raw.index, lastMonth: lastMonth,
-             kinds: KINDS.map(function(k){ return k.kind; }), firstMonth: FIRST, rawCount: { quotes: raw.quotes.length, actuals: raw.actuals.length } };
+    exceptions.sort(function(x, y){ return ORDER.indexOf(x.reason) - ORDER.indexOf(y.reason) || (x.pj < y.pj ? -1 : x.pj > y.pj ? 1 : 0); });
+    return { projects: computed, held: ins.held, exceptions: exceptions, index: ins.index, lastMonth: lastMonth,
+             kinds: KINDS.map(function(k){ return k.kind; }), firstMonth: FIRST, rawCount: ins.rawCount };
   }
 
-  var cache = null;
-  function get(settings){ if (!cache) cache = buildData(generate(), settings); return cache; }
-  return { generate: generate, buildData: buildData, get: get };
+  function buildData(raw, settings){ return compute(inspect(raw), settings); }
+
+  var inspected = null;
+  function get(settings){                       // 원본 검사는 한 번만, 계산은 설정마다
+    if (!inspected) inspected = inspect(generate());
+    return compute(inspected, settings);
+  }
+  return { generate: generate, inspect: inspect, compute: compute, buildData: buildData, get: get };
 })(CostCalc);
 </script>
 
@@ -1005,7 +1060,7 @@ var DemoData = (function(C){
     document.getElementById("st-list").innerHTML = html;
     document.getElementById("st-score").textContent = passed + " / " + total;
     document.getElementById("st-note").textContent = allOk
-      ? "정답.md 예시 A~H와 가상 데이터 점검이 모두 정답과 일치합니다 (금액 1원·비율 0.01%p 미만)"
+      ? "정답.md 예시 A~I와 가상 데이터 점검이 모두 정답과 일치합니다 (금액 1원·비율 0.01%p 미만)"
       : "정답과 다른 항목이 있습니다. 다음 조각으로 넘어가지 않습니다";
     document.querySelector(".st-summary").classList.toggle("fail", !allOk);
     return { total: total, passed: passed };

@@ -19,5 +19,15 @@
 ## 실행
 `index.html`을 브라우저로 열면 됩니다. 서버·설치 필요 없음.
 
+## 검증 방법
+| 방법 | 하는 법 | 무엇을 보나 |
+|---|---|---|
+| 자가 검산 | 앱 → 설정 탭, 또는 `index.html?selftest` | [정답.md](정답.md) 예시 A~I + 가상 데이터 점검 통과 수 |
+| 가로 넘침 검사 | `index.html?layoutcheck` | 왼쪽 위 `overflow=false` |
+| 무작위 교차 비교 | `python validation/tools/diffcheck.py index.html 결과.html` → 결과.html 열기 | 파이썬 독립 구현과 계산 엔진이 7,501항목 일치하는지 |
+| 가상 데이터 통계 | `python validation/tools/datastats.py index.html 통계.html` → 통계.html 열기 | 확인 필요 분포, 기종 주의, 시연 이야기가 나오는지 |
+
+점검 기록: [validation/](validation/) · AI 사용 기록: [ai-log/](ai-log/)
+
 ## 원본 기획서
 [하이젠알앤엠_최종기획서_v2.pdf](하이젠알앤엠_최종기획서_v2.pdf)

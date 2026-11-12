@@ -1,0 +1,4 @@
+# 줄바꿈을 LF로 통일 (커밋마다 나오던 CRLF 경고 제거)
+* text=auto eol=lf
+*.png binary
+*.pdf binary
