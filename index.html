@@ -174,6 +174,23 @@ main{
 .setting-row .label span{font-size:13px; color:var(--muted); font-weight:500}
 .footnote{font-size:12px; color:var(--muted); text-align:center; margin:28px 0 0; font-weight:600}
 
+/* ---------- 자가 검산 ---------- */
+.selftest{display:grid; gap:8px}
+.st-summary{min-height:auto}
+.st-score{font-size:30px; font-weight:900; color:var(--yellow); letter-spacing:-.5px; line-height:1.1}
+.st-note{font-size:13px; color:var(--panel-muted); font-weight:600}
+.st-summary.fail .st-score{color:#ff6b4a}
+.st-case{padding:12px 14px; border-bottom:1.5px solid var(--line-soft)}
+.st-case:last-child{border-bottom:none}
+.st-head{display:flex; align-items:center; gap:10px; min-height:28px}
+.st-head b{flex:1; min-width:0; font-size:14px; font-weight:800}
+.st-badge{flex:none; font-size:12px; font-weight:900; padding:3px 8px; border-radius:4px}
+.st-badge.pass{background:var(--under-soft); color:var(--under)}
+.st-badge.fail{background:var(--over-soft); color:var(--over)}
+.st-fails{margin:6px 0 0; padding:0; list-style:none; display:grid; gap:4px}
+.st-fails li{font-size:12.5px; color:var(--over); font-weight:600; font-variant-numeric:tabular-nums}
+.st-desc{font-size:12.5px; color:var(--muted); margin-top:2px}
+
 @media (prefers-reduced-motion:reduce){
   .sk{animation:none}
   .view.active{animation:none}
@@ -359,16 +376,354 @@ main{
       <div class="setting-row"><div class="label"><b>기종 주의 기준</b><span>개당 원가 +5% · 이익률 −5%p</span></div><span class="sk sk-line w30" aria-hidden="true"></span></div>
     </div>
 
-    <div class="section-label"><span>자가 검산 (정답.md 예시 A~G)</span><span class="tag-soon">조각 2</span></div>
-    <div class="card list" aria-hidden="true">
-      <div class="list-item row"><div class="grow"><span class="sk sk-line w60"></span></div><span class="sk sk-line w30"></span></div>
-      <div class="list-item row"><div class="grow"><span class="sk sk-line w50"></span></div><span class="sk sk-line w30"></span></div>
+    <div class="section-label"><span>자가 검산 (정답.md 예시 A~H)</span></div>
+    <div class="selftest" id="selftest" aria-live="polite">
+      <div class="kpi dark st-summary"><span class="kpi-label">계산 엔진 검산</span><span class="st-score num" id="st-score">—</span><span class="st-note" id="st-note">검산 중…</span></div>
+      <div class="card list" id="st-list"></div>
     </div>
   </section>
 
   <p class="footnote">모든 숫자는 시연용 가상 데이터입니다 · 원인은 담당자가 확정합니다</p>
 </main>
 </div>
+
+<script>
+/* =========================================================
+   계산 엔진 (조각 2 · spec R1~R4 · CLAUDE.md 계산 규칙)
+   - 화면 코드와 분리. 반올림하지 않은 원값을 돌려준다(표시할 때만 반올림).
+   - 데이터 모양
+     project = { id, kind, qty, price(견적 판매금액), baseMonth "YYYY-MM"(견적 기준월),
+                 doneMonth "YYYY-MM"(생산 완료월), materials:[...] }
+     material(분해형) = { code, name, type:"split", sq, sp, aq, ap, index(지표명) }
+     material(총액형) = { code, name, type:"total", pre, post }
+     indexTable = { 지표명: { "YYYY-MM": 원/kg } }
+   ========================================================= */
+var CostCalc = (function(){
+  "use strict";
+
+  var DEFAULTS = {
+    rateMin: 0.05,       // 확인 필요 ① 차이율
+    amtMin: 300000,      // 확인 필요 ① 금액 하한
+    amtMax: 2000000,     // 확인 필요 ② 금액 상한
+    unexplRatio: 0.5,    // 확인 필요 ③ 미분해 / 단가 효과
+    unexplMin: 300000,   // 확인 필요 ③ 금액 하한
+    staleMonths: 6,      // 확인 필요 ④ 견적 기준월 → 생산 완료월
+    kindUnitUp: 0.05,    // 기종 주의 ① 개당 원가 상승
+    kindMarginDrop: 0.05 // 기종 주의 ② 이익률 하락(%p)
+  };
+
+  function merge(s){ var o = {}, k; for (k in DEFAULTS) o[k] = DEFAULTS[k]; if (s) for (k in s) o[k] = s[k]; return o; }
+
+  /* ---- 월 계산 ---- */
+  function monthIndex(m){ var p = String(m).split("-"); return (+p[0]) * 12 + (+p[1] - 1); }
+  function monthFromIndex(i){ var y = Math.floor(i / 12), mo = i % 12 + 1; return y + "-" + (mo < 10 ? "0" : "") + mo; }
+  function monthDiff(a, b){ return monthIndex(b) - monthIndex(a); }
+  function addMonths(m, n){ return monthFromIndex(monthIndex(m) + n); }
+
+  function indexValue(table, name, month){
+    if (!table || !name || !table[name]) return null;
+    var v = table[name][month];
+    return (typeof v === "number" && isFinite(v)) ? v : null;
+  }
+
+  /* ---- 재료 한 줄 (spec R3.1~R3.3) ---- */
+  function material(m, table, baseMonth, doneMonth){
+    var r = { code: m.code, name: m.name, type: m.type };
+    if (m.type === "split"){
+      r.pre = m.sq * m.sp;
+      r.post = m.aq * m.ap;
+      r.diff = r.post - r.pre;
+      r.use = (m.aq - m.sq) * m.sp;
+      r.price = (m.ap - m.sp) * m.aq;
+      var i0 = indexValue(table, m.index, baseMonth), i1 = indexValue(table, m.index, doneMonth);
+      r.index0 = i0; r.index1 = i1;
+      if (i0 !== null && i1 !== null){
+        r.indexShare = m.aq * (i1 - i0);
+        r.unexpl = r.price - r.indexShare;
+      } else {
+        r.indexShare = null;   // "가정 없음"
+        r.unexpl = null;
+      }
+      r.other = 0;
+    } else {
+      r.pre = m.pre; r.post = m.post; r.diff = m.post - m.pre;
+      r.use = 0; r.price = 0; r.indexShare = null; r.unexpl = null;
+      r.other = r.diff;        // 총액형은 전부 "기타"
+    }
+    return r;
+  }
+
+  /* ---- 프로젝트 (spec R2.1, R3, R4.1) ---- */
+  function project(p, table, settings){
+    var s = merge(settings);
+    var mats = p.materials.map(function(m){ return material(m, table, p.baseMonth, p.doneMonth); });
+    var t = { id: p.id, kind: p.kind, qty: p.qty, price: p.price, baseMonth: p.baseMonth, doneMonth: p.doneMonth,
+              materials: mats, pre: 0, post: 0, use: 0, indexShare: 0, unexpl: 0, undivided: 0, other: 0,
+              absSplit: 0, absTotal: 0, absUnexpl: 0, absPriceIdx: 0, hasIndex: false };
+    mats.forEach(function(r){
+      t.pre += r.pre; t.post += r.post; t.use += r.use; t.other += r.other;
+      if (r.type === "split"){
+        t.absSplit += Math.abs(r.diff);
+        if (r.indexShare !== null){
+          t.hasIndex = true;
+          t.indexShare += r.indexShare; t.unexpl += r.unexpl;
+          t.absUnexpl += Math.abs(r.unexpl);      // 재료끼리 상쇄되지 않게 절댓값 합
+          t.absPriceIdx += Math.abs(r.price);
+        } else {
+          t.undivided += r.price;                   // 지표 없음 → 단가 효과를 나누지 않음
+        }
+      } else {
+        t.absTotal += Math.abs(r.diff);
+      }
+    });
+    t.diff = t.post - t.pre;
+    t.rate = t.pre !== 0 ? t.diff / t.pre : null;
+    t.check = t.use + t.indexShare + t.unexpl + t.undivided + t.other - t.diff;   // 0이어야 함 (R3.10)
+    t.checkOk = Math.abs(t.check) < 1;
+    var den = t.absSplit + t.absTotal;
+    t.coverage = den > 0 ? t.absSplit / den : null;                               // 분해 범위 (R3.6)
+    t.elapsed = (p.baseMonth && p.doneMonth) ? monthDiff(p.baseMonth, p.doneMonth) : null;
+    t.flags = flags(t, s);
+    t.sentence = sentence(t);
+    return t;
+  }
+
+  /* ---- 확인 필요 ①~④ (spec R4.1) ---- */
+  function flags(t, s){
+    var f = [], ad = Math.abs(t.diff);
+    if (t.rate !== null && Math.abs(t.rate) >= s.rateMin && ad >= s.amtMin) f.push(1);
+    if (ad >= s.amtMax) f.push(2);
+    if (t.absPriceIdx > 0 && t.absUnexpl >= t.absPriceIdx * s.unexplRatio && t.absUnexpl >= s.unexplMin) f.push(3);
+    if (t.elapsed !== null && t.elapsed >= s.staleMonths) f.push(4);
+    return f;
+  }
+
+  /* ---- 표시용 숫자 ---- */
+  function round(v){ var r = Math.round(v); return r === 0 ? 0 : r; }     // -0 방지
+  function won(v, signed){
+    var r = round(v), s = Math.abs(r).toLocaleString("ko-KR");
+    if (!signed) return (r < 0 ? "−" : "") + s;
+    return (r > 0 ? "+" : r < 0 ? "−" : "") + s;
+  }
+  function pct(v, digits, signed){
+    if (v === null || !isFinite(v)) return "—";
+    var x = v * 100, r = Number(x.toFixed(digits));
+    if (r === 0) r = 0;
+    var s = Math.abs(r).toFixed(digits);
+    if (!signed) return (r < 0 ? "−" : "") + s + "%";
+    return (r > 0 ? "+" : r < 0 ? "−" : "") + s + "%";
+  }
+
+  /* ---- 설명 문장 템플릿 (spec R3.8, 생성형 AI 아님) ---- */
+  function sentence(t){
+    var parts = [
+      { name: "사용량", v: t.use },
+      { name: "고시가 몫", v: t.hasIndex ? t.indexShare : 0 },
+      { name: "미분해", v: t.hasIndex ? t.unexpl : 0 },
+      { name: "나누지 않은 단가", v: t.undivided },
+      { name: "기타", v: t.other }
+    ].filter(function(x){ return Math.abs(x.v) >= 0.5; });
+    parts.sort(function(a, b){ return Math.abs(b.v) - Math.abs(a.v); });
+    var head = t.id + " 차이 " + won(t.diff, true) + "원(" + pct(t.rate, 1, true) + ")";
+    if (!parts.length || Math.abs(t.diff) < 0.5) return head + ".";
+    return head + " 중 " + parts.slice(0, 3).map(function(x){
+      return x.name + " " + won(x.v, true) + "원(" + Math.round(x.v / t.diff * 100) + "%)";
+    }).join(", ") + ".";
+  }
+
+  /* ---- 정렬 (spec R2.2) ---- */
+  function sortProjects(list, mode){
+    var key = mode === "rate"
+      ? function(t){ return t.rate === null ? -1 : Math.abs(t.rate); }
+      : function(t){ return Math.abs(t.diff); };
+    return list.slice().sort(function(a, b){ return key(b) - key(a); });
+  }
+
+  /* ---- 기종 (spec R1) ---- */
+  function sumWindow(list, from, to){
+    var a = { n: 0, pre: 0, post: 0, qty: 0, price: 0 };
+    list.forEach(function(t){
+      var i = monthIndex(t.doneMonth);
+      if (i >= monthIndex(from) && i <= monthIndex(to)){ a.n++; a.pre += t.pre; a.post += t.post; a.qty += t.qty; a.price += t.price; }
+    });
+    return a;
+  }
+
+  // 월별 개당 원가. 완료 0건인 달은 null(빈칸, R1.4)
+  function kindMonthly(list, kind, firstMonth, lastMonth){
+    var rows = [], mine = list.filter(function(t){ return t.kind === kind; });
+    for (var i = monthIndex(firstMonth); i <= monthIndex(lastMonth); i++){
+      var m = monthFromIndex(i), w = sumWindow(mine, m, m);
+      rows.push({ month: m, n: w.n,
+                  unitPre: w.qty > 0 ? w.pre / w.qty : null,
+                  unitPost: w.qty > 0 ? w.post / w.qty : null });
+    }
+    return rows;
+  }
+
+  // 기종 주의 ①② (R1.3). 기준 시점 = 데이터 마지막 생산 완료월(R0.6)
+  function kindAlert(list, kind, lastMonth, settings){
+    var s = merge(settings), mine = list.filter(function(t){ return t.kind === kind; });
+    var recent = sumWindow(mine, addMonths(lastMonth, -2), lastMonth);
+    var prev = sumWindow(mine, addMonths(lastMonth, -5), addMonths(lastMonth, -3));
+    var r = { kind: kind, recent: recent, prev: prev };
+
+    if (recent.qty > 0 && prev.qty > 0){
+      r.unitRecent = recent.post / recent.qty; r.unitPrev = prev.post / prev.qty;
+      r.unitChange = r.unitRecent / r.unitPrev - 1;
+      r.unit = r.unitChange >= s.kindUnitUp ? "alert" : "ok";
+    } else { r.unit = "unknown"; r.unitChange = null; }
+
+    if (recent.n > 0 && recent.price > 0){
+      r.marginEst = (recent.price - recent.pre) / recent.price;
+      r.marginAct = (recent.price - recent.post) / recent.price;
+      r.marginGap = r.marginAct - r.marginEst;
+      r.margin = r.marginGap <= -s.kindMarginDrop ? "alert" : "ok";
+    } else { r.margin = "unknown"; r.marginGap = null; }
+    return r;
+  }
+
+  return { DEFAULTS: DEFAULTS, material: material, project: project, sortProjects: sortProjects,
+           kindMonthly: kindMonthly, kindAlert: kindAlert, monthDiff: monthDiff, addMonths: addMonths,
+           won: won, pct: pct };
+})();
+
+/* =========================================================
+   자가 검산 (조각 2 · spec R0.5 · 정답.md 예시 A~G)
+   - 화면 목록에는 섞지 않는 고정 입력. 결과는 설정 화면에만 표시.
+   ========================================================= */
+var SelfTest = (function(C){
+  "use strict";
+  var WON = 1, RATE = 0.0001;   // 금액 1원 미만, 비율 0.01%p 미만
+
+  function one(id, sq, sp, aq, ap, idx){
+    return { id: id, kind: "TEST", qty: 1, price: 0, baseMonth: "2026-01", doneMonth: "2026-03",
+             materials: [{ code: "CU", name: "동선", type: "split", sq: sq, sp: sp, aq: aq, ap: ap, index: idx ? "동선" : null }] };
+  }
+  var IDX_ABC = { "동선": { "2026-01": 14000, "2026-03": 16500 } };
+
+  var IDX_D = { "동선": { "2026-03": 16400, "2026-05": 17700 }, "주물": { "2026-03": 1593, "2026-05": 1638 } };
+  var PJ2611 = { id: "PJ-2611", kind: "HX-EXD-7.5kW", qty: 20, price: 13010000, baseMonth: "2026-03", doneMonth: "2026-05",
+    materials: [
+      { code: "CU",   name: "동선",      type: "split", sq: 120, sp: 17500, aq: 121.7,  ap: 18894, index: "동선" },
+      { code: "CAST", name: "주물",      type: "split", sq: 960, sp: 1683,  aq: 1042.4, ap: 1711,  index: "주물" },
+      { code: "ETC",  name: "기타 부품", type: "total", pre: 1840000, post: 1892000 },
+      { code: "PROC", name: "가공비",    type: "total", pre: 5200000, post: 5642000 }
+    ] };
+
+  function totalOnly(id, pre, post){
+    return { id: id, kind: "TEST", qty: 1, price: 0, baseMonth: "2026-05", doneMonth: "2026-05",
+             materials: [{ code: "ALL", name: "총액", type: "total", pre: pre, post: post }] };
+  }
+  function kindPj(id, month, pre, post, qty, price){
+    return { id: id, kind: "HM-4P-15kW", qty: qty, price: price, baseMonth: month, doneMonth: month,
+             materials: [{ code: "ALL", name: "총액", type: "total", pre: pre, post: post }] };
+  }
+
+  var CASES = [
+    { id: "A", title: "예시 A · 기본 분해", run: function(ck){
+        var t = C.project(one("A", 10, 15000, 11, 18000, true), IDX_ABC), m = t.materials[0];
+        ck("사전", t.pre, 150000, WON); ck("사후", t.post, 198000, WON); ck("총차이", t.diff, 48000, WON);
+        ck("차이율", t.rate, 0.32, RATE); ck("사용량 효과", m.use, 15000, WON); ck("단가 효과", m.price, 33000, WON);
+        ck("고시가 몫", m.indexShare, 27500, WON); ck("미분해 몫", m.unexpl, 5500, WON); ck("검산", t.check, 0, WON);
+    }},
+    { id: "B", title: "예시 B · 미분해 음수", run: function(ck){
+        var t = C.project(one("B", 10, 15000, 11, 16000, true), IDX_ABC), m = t.materials[0];
+        ck("사후", t.post, 176000, WON); ck("총차이", t.diff, 26000, WON); ck("차이율", t.rate, 26000 / 150000, RATE);
+        ck("사용량 효과", m.use, 15000, WON); ck("단가 효과", m.price, 11000, WON);
+        ck("고시가 몫", m.indexShare, 27500, WON); ck("미분해 몫", m.unexpl, -16500, WON); ck("검산", t.check, 0, WON);
+    }},
+    { id: "C", title: "예시 C · 덜 든 경우, 지표 없음", run: function(ck){
+        var t = C.project(one("C", 10, 15000, 9.5, 14000, false), IDX_ABC), m = t.materials[0];
+        ck("사후", t.post, 133000, WON); ck("총차이", t.diff, -17000, WON); ck("차이율", t.rate, -17000 / 150000, RATE);
+        ck("사용량 효과", m.use, -7500, WON); ck("단가 효과", m.price, -9500, WON);
+        ck("고시가 몫 = 가정 없음", m.indexShare, null); ck("나누지 않은 단가", t.undivided, -9500, WON); ck("검산", t.check, 0, WON);
+    }},
+    { id: "D", title: "예시 D · PJ-2611 전체", run: function(ck){
+        var t = C.project(PJ2611, IDX_D);
+        ck("사전", t.pre, 10755680, WON); ck("사후", t.post, 11616946.2, WON); ck("총차이", t.diff, 861266.2, WON);
+        ck("차이율", t.rate, 861266.2 / 10755680, RATE);
+        ck("사용량 합", t.use, 168429.2, WON); ck("고시가 몫 합", t.indexShare, 205118, WON);
+        ck("미분해 합", t.unexpl, -6281.0, WON); ck("기타", t.other, 494000, WON); ck("검산", t.check, 0, WON);
+        ck("동선 미분해", t.materials[0].unexpl, 11439.8, WON); ck("주물 미분해", t.materials[1].unexpl, -17720.8, WON);
+        ck("분해 범위", t.coverage, 0.42643, RATE);
+        ck("Σ|미분해|", t.absUnexpl, 29160.6, WON); ck("Σ|단가 효과|", t.absPriceIdx, 198837, WON);
+        ck("경과 개월", t.elapsed, 2, 0); ck("확인 필요 사유", t.flags.join(","), "1");
+        ck("화면 표시 사후", C.won(t.post), "11,616,946"); ck("화면 표시 미분해", C.won(t.unexpl, true), "−6,281");
+        ck("설명 문장", t.sentence, "PJ-2611 차이 +861,266원(+8.0%) 중 기타 +494,000원(57%), 고시가 몫 +205,118원(24%), 사용량 +168,429원(20%).");
+    }},
+    { id: "E", title: "예시 E · 정렬과 확인 필요", run: function(ck){
+        var list = [
+          C.project(totalOnly("PJ-2611", 10755680, 11616946)),
+          C.project(totalOnly("PJ-2605", 16552860, 17316341)),
+          C.project(totalOnly("PJ-2628", 25432800, 27305668)),
+          C.project(totalOnly("PJ-2606", 40320420, 42947073))
+        ];
+        var ids = function(l){ return l.map(function(t){ return t.id; }).join(" > "); };
+        ck("금액 순", ids(C.sortProjects(list, "amount")), "PJ-2606 > PJ-2628 > PJ-2611 > PJ-2605");
+        ck("차이율 순", ids(C.sortProjects(list, "rate")), "PJ-2611 > PJ-2628 > PJ-2606 > PJ-2605");
+        var by = {}; list.forEach(function(t){ by[t.id] = t; });
+        ck("PJ-2606 차이율", by["PJ-2606"].rate, 0.06514, RATE);
+        ck("PJ-2606 사유", by["PJ-2606"].flags.join(","), "1,2");
+        ck("PJ-2628 사유", by["PJ-2628"].flags.join(","), "1");
+        ck("PJ-2611 사유", by["PJ-2611"].flags.join(","), "1");
+        ck("PJ-2605 사유", by["PJ-2605"].flags.join(","), "");
+    }},
+    { id: "F", title: "예시 F · 기종 개당 원가와 이익률", run: function(ck){
+        var list = [ C.project(kindPj("PJ-A", "2026-05", 9500000, 10000000, 20, 12000000)),
+                     C.project(kindPj("PJ-B", "2026-05", 5500000, 6000000, 10, 6000000)) ];
+        var may = C.kindMonthly(list, "HM-4P-15kW", "2026-04", "2026-06");
+        ck("2026-04 빈칸", may[0].unitPost, null);
+        ck("2026-05 견적 개당", may[1].unitPre, 500000, WON);
+        ck("2026-05 실제 개당", may[1].unitPost, 533333.33, WON);
+        var a = C.kindAlert(list, "HM-4P-15kW", "2026-06");
+        ck("견적 이익률", a.marginEst, 1 / 6, RATE); ck("실제 이익률", a.marginAct, 1 / 9, RATE);
+        ck("이익률 차이", a.marginGap, -0.05556, RATE); ck("기종 주의 ②", a.margin, "alert");
+        ck("기종 주의 ① (직전 3개월 없음)", a.unit, "unknown");
+    }},
+    { id: "G", title: "예시 G · 기종 3개월 비교", run: function(ck){
+        var list = [ C.project(kindPj("PJ-P", "2026-02", 29000000, 30000000, 60, 36000000)),
+                     C.project(kindPj("PJ-R", "2026-05", 31000000, 33000000, 62, 40000000)) ];
+        var a = C.kindAlert(list, "HM-4P-15kW", "2026-06");
+        ck("직전 개당", a.unitPrev, 500000, WON); ck("최근 개당", a.unitRecent, 532258.06, WON);
+        ck("변화", a.unitChange, 0.064516, RATE); ck("기종 주의 ①", a.unit, "alert");
+        var a2 = C.kindAlert([list[1]], "HM-4P-15kW", "2026-06");
+        ck("G-2 직전 0건 → 판단 불가", a2.unit, "unknown");
+    }},
+    { id: "H", title: "예시 H · 확인 필요 ③④ 켜짐, 경계값", run: function(ck){
+        function h(done){
+          return { id: "H", kind: "TEST", qty: 1, price: 0, baseMonth: "2025-10", doneMonth: done,
+                   materials: [{ code: "CU", name: "동선", type: "split", sq: 100, sp: 15000, aq: 100, ap: 25000, index: "동선" }] };
+        }
+        var idx = { "동선": { "2025-10": 14000, "2026-03": 15000, "2026-04": 15000, "2026-05": 15000 } };
+        var t = C.project(h("2026-05"), idx), m = t.materials[0];
+        ck("총차이", t.diff, 1000000, WON); ck("차이율", t.rate, 2 / 3, RATE);
+        ck("사용량 효과", m.use, 0, WON); ck("단가 효과", m.price, 1000000, WON);
+        ck("고시가 몫", m.indexShare, 100000, WON); ck("미분해 몫", m.unexpl, 900000, WON);
+        ck("경과 개월", t.elapsed, 7, 0); ck("확인 필요 사유", t.flags.join(","), "1,3,4");
+        ck("경과 6개월 → ④ 해당", C.project(h("2026-04"), idx).flags.indexOf(4) >= 0, true);
+        ck("경과 5개월 → ④ 아님", C.project(h("2026-03"), idx).flags.indexOf(4) >= 0, false);
+    }}
+  ];
+
+  function run(){
+    return CASES.map(function(c){
+      var res = { id: c.id, title: c.title, total: 0, passed: 0, fails: [] };
+      function ck(label, got, want, tol){
+        res.total++;
+        var ok;
+        if (typeof want === "number" && typeof got === "number") ok = Math.abs(got - want) < (tol || 1e-9) || (tol === 0 && got === want);
+        else ok = got === want;
+        if (ok) res.passed++;
+        else res.fails.push(label + ": 결과 " + (got === null ? "null" : got) + " / 정답 " + (want === null ? "null" : want));
+      }
+      try { c.run(ck); } catch (e) { res.total++; res.fails.push("실행 오류: " + e.message); }
+      return res;
+    });
+  }
+  return { run: run };
+})(CostCalc);
+</script>
 
 <script>
 (function(){
@@ -391,6 +746,36 @@ main{
   function route(){ show((location.hash || "#kinds").slice(1)); }
   window.addEventListener("hashchange", route);
   route();
+
+  /* ---- 자가 검산 결과 그리기 (설정 화면) ---- */
+  function esc(s){ return String(s).replace(/[&<>"]/g, function(c){ return { "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;" }[c]; }); }
+  function renderSelfTest(){
+    var results = SelfTest.run(), total = 0, passed = 0, html = "";
+    results.forEach(function(r){
+      total += r.total; passed += r.passed;
+      var ok = r.fails.length === 0;
+      html += '<div class="st-case"><div class="st-head"><b>' + esc(r.title) + '</b>' +
+              '<span class="st-badge ' + (ok ? "pass" : "fail") + ' num">' + (ok ? "통과 " : "실패 ") + r.passed + "/" + r.total + "</span></div>";
+      if (!ok) html += '<ul class="st-fails">' + r.fails.map(function(f){ return "<li>" + esc(f) + "</li>"; }).join("") + "</ul>";
+      html += "</div>";
+    });
+    var allOk = passed === total;
+    document.getElementById("st-list").innerHTML = html;
+    document.getElementById("st-score").textContent = passed + " / " + total;
+    document.getElementById("st-note").textContent = allOk
+      ? "정답.md 예시 A~H의 모든 항목이 정답과 일치합니다 (금액 1원·비율 0.01%p 미만)"
+      : "정답과 다른 항목이 있습니다. 다음 조각으로 넘어가지 않습니다";
+    document.querySelector(".st-summary").classList.toggle("fail", !allOk);
+    return { total: total, passed: passed };
+  }
+  var st = renderSelfTest();
+  // 검증용: ?selftest 로 열면 결과를 왼쪽 위에 띄운다 (평소에는 아무것도 안 함)
+  if (location.search.indexOf("selftest") >= 0){
+    var b = document.createElement("div");
+    b.style.cssText = "position:fixed;left:4px;top:4px;z-index:99;background:#111;color:#0f0;font:12px/1.3 monospace;padding:4px 6px;border-radius:4px";
+    b.textContent = "selftest " + st.passed + "/" + st.total + (st.passed === st.total ? " PASS" : " FAIL");
+    document.body.appendChild(b);
+  }
 
   // 검증용: ?layoutcheck 로 열 때만 화면 너비와 가로 넘침 여부를 왼쪽 위에 띄운다 (평소에는 아무것도 안 함)
   if (location.search.indexOf("layoutcheck") >= 0){
