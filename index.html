@@ -78,7 +78,7 @@ a{color:inherit}
 .side-brand, .side-foot{display:none}
 .nav{
   position:fixed; left:0; right:0; bottom:0; z-index:30;
-  display:grid; grid-template-columns:repeat(4,1fr); gap:4px;
+  display:grid; grid-template-columns:repeat(5,1fr); gap:4px;
   height:calc(var(--tabbar-h) + env(safe-area-inset-bottom));
   padding:8px 8px calc(8px + env(safe-area-inset-bottom));
   background:var(--panel);
@@ -301,6 +301,30 @@ body.sheet-open{overflow:hidden}
 @media (min-width:600px){ .kd-cards{grid-template-columns:repeat(2,minmax(0,1fr))} }
 @media (min-width:960px){ .kd-cards{grid-template-columns:repeat(3,minmax(0,1fr))} .kd-chart{height:240px} }
 
+/* ---------- 데이터 불러오기 · 내보내기 (조각 9·10) ---------- */
+.badge-demo.real{background:#fff; color:var(--ink); border:1.5px solid var(--yellow)}
+.dz-now, .dz-form, .dz-tpl, .dz-export{display:grid; gap:10px; margin-bottom:12px}
+.dz-now h2, .dz-form h2, .dz-tpl h2, .dz-export h2{margin:0}
+.dz-src{display:flex; flex-wrap:wrap; align-items:center; gap:8px}
+.dz-src .src-tag{font-size:13px; font-weight:900; padding:3px 9px; border-radius:4px; background:var(--yellow); color:var(--ink)}
+.dz-src .src-tag.file{background:var(--ink); color:var(--yellow)}
+.dz-stats{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px 12px; margin:0}
+.dz-stats div{display:grid}
+.dz-stats dt{font-size:12px; color:var(--muted); font-weight:700}
+.dz-stats dd{margin:0; font-size:15px; font-weight:900}
+.dz-file{display:grid; gap:4px; padding:10px 12px; border:1.5px dashed var(--ink); border-radius:var(--radius); background:var(--surface-2)}
+.dz-file > span{font-size:13.5px; font-weight:900}
+.dz-file .req{font-size:11px; padding:1px 5px; border-radius:3px; background:var(--over); color:#fff; margin-left:4px}
+.dz-file i{font-style:normal; font-size:11.5px; color:var(--muted); margin-left:4px}
+.dz-file input{font:inherit; font-size:13.5px; min-height:44px; max-width:100%}
+.dz-result:empty{display:none}
+.dz-result{border-radius:var(--radius); padding:10px 12px; font-size:13.5px; font-weight:700; border:2px solid var(--ink); background:var(--surface)}
+.dz-result.err{border-color:var(--over); background:var(--over-soft); color:var(--over)}
+.dz-result.ok{border-color:var(--under); background:var(--under-soft); color:#13542a}
+.dz-result ul{margin:6px 0 0; padding-left:18px}
+.dz-result .map{font-size:12.5px; color:var(--ink-2); font-weight:600}
+@media (min-width:960px){ .dz-stats{grid-template-columns:repeat(4,minmax(0,1fr))} }
+
 /* ---------- 설정 · 메모 (조각 6) ---------- */
 .set-form, .set-data{display:grid; gap:12px; margin-top:12px}
 .set-field{display:grid; gap:4px}
@@ -446,7 +470,7 @@ body.sheet-open{overflow:hidden}
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 19V11M12 19V5M19 19v-5"/></svg>
   </span>
   <span class="appbar-title">원가 차이 관리</span>
-  <span class="badge-demo" title="모든 숫자는 시연용 가상 데이터입니다">가상 데이터</span>
+  <span class="badge-demo" id="src-badge" title="모든 숫자는 시연용 가상 데이터입니다">가상 데이터</span>
 </header>
 
 <!-- 내비게이션: 폰 = 하단 탭바, PC = 왼쪽 사이드바 -->
@@ -471,6 +495,10 @@ body.sheet-open{overflow:hidden}
       <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 3.9L2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg></span>
       <span>예외</span>
     </a>
+    <a class="nav-item" href="#data" data-view="data">
+      <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 8l5-5 5 5"/><path d="M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></svg></span>
+      <span>데이터</span>
+    </a>
     <a class="nav-item" href="#settings" data-view="settings">
       <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg></span>
       <span>설정</span>
@@ -479,7 +507,7 @@ body.sheet-open{overflow:hidden}
 
   <div class="side-foot">
     <div>운영 담당자<br><b id="owner-side">미지정</b></div>
-    <span class="badge-demo">가상 데이터</span>
+    <span class="badge-demo" id="src-badge-side">가상 데이터</span>
   </div>
 </aside>
 
@@ -563,6 +591,42 @@ body.sheet-open{overflow:hidden}
     <div class="ex-list" id="ex-list"></div>
   </section>
 
+  <!-- 데이터 불러오기 · 내보내기 (spec R6·R7 · 조각 9·10, 임원 검수) -->
+  <section class="view" id="view-data" aria-labelledby="h-data">
+    <div class="page-head">
+      <div class="titles">
+        <h1 id="h-data">데이터</h1>
+        <p>우리 견적·실적 파일을 불러오고, 결과를 내려받습니다</p>
+      </div>
+    </div>
+    <div class="card dz-now" id="dz-now"></div>
+
+    <form class="card dz-form" id="dz-form" novalidate>
+      <h2>파일 불러오기</h2>
+      <p class="hint">엑셀(xlsx, 첫 번째 시트) 또는 CSV. 파일은 <b>이 브라우저 안에서만</b> 읽고 어디에도 보내지 않습니다.</p>
+      <label class="dz-file"><span>견적 파일 <b class="req">필수</b></span><input type="file" id="dz-q" accept=".xlsx,.csv,.txt"></label>
+      <label class="dz-file"><span>실적 파일 <b class="req">필수</b></span><input type="file" id="dz-a" accept=".xlsx,.csv,.txt"></label>
+      <label class="dz-file"><span>지표(고시가) 파일 <i>선택</i></span><input type="file" id="dz-i" accept=".xlsx,.csv,.txt"></label>
+      <div class="set-actions">
+        <button type="submit" class="btn primary" id="dz-load" disabled>불러오기</button>
+        <button type="button" class="btn" id="dz-demo">가상 데이터로 돌아가기</button>
+      </div>
+      <div class="dz-result" id="dz-result" aria-live="polite"></div>
+    </form>
+
+    <div class="card dz-tpl">
+      <h2>양식 받기</h2>
+      <p class="hint">열 이름은 달라도 됩니다(띄어쓰기·괄호 무시, 비슷한 이름 인식). <b>견적 필수</b>: 프로젝트번호·기종·생산수량·판매금액·견적기준월·재료코드 + (견적사용량·견적단가 또는 견적금액) · <b>실적 필수</b>: 프로젝트번호·재료코드·생산완료월 + (실제사용량·실제단가 또는 실적금액) · <b>지표</b>: 지표명·월·값</p>
+      <div class="set-actions">
+        <button type="button" class="btn" data-tpl="quotes">견적 양식 (CSV)</button>
+        <button type="button" class="btn" data-tpl="actuals">실적 양식 (CSV)</button>
+        <button type="button" class="btn" data-tpl="index">지표 양식 (CSV)</button>
+      </div>
+    </div>
+
+    <div class="card dz-export" id="dz-export"></div>
+  </section>
+
   <!-- 설정 (spec R4.4 · 조각 2·6) -->
   <section class="view" id="view-settings" aria-labelledby="h-settings">
     <div class="page-head">
@@ -608,14 +672,14 @@ body.sheet-open{overflow:hidden}
       <button type="button" class="btn danger" id="set-clear">메모·확정 모두 지우기</button>
     </div>
 
-    <div class="section-label"><span>자가 검산 (정답.md 예시 A~M + 가상 데이터 + 화면 점검)</span></div>
+    <div class="section-label"><span>자가 검산 (정답.md 예시 A~N + 가상 데이터 + 화면 점검)</span></div>
     <div class="selftest" id="selftest" aria-live="polite">
       <div class="kpi dark st-summary"><span class="kpi-label">계산 엔진 검산</span><span class="st-score num" id="st-score">—</span><span class="st-note" id="st-note">검산 중…</span></div>
       <div class="card list" id="st-list"></div>
     </div>
   </section>
 
-  <p class="footnote">모든 숫자는 시연용 가상 데이터입니다 · 원인은 담당자가 확정합니다</p>
+  <p class="footnote" id="src-foot">모든 숫자는 시연용 가상 데이터입니다 · 원인은 담당자가 확정합니다</p>
 </main>
 </div>
 
@@ -1066,6 +1130,32 @@ var SelfTest = (function(C){
         var bad = Store.memoryStorage(); bad.setItem(Store.KEY, "{oops");
         ck("깨진 저장값 → 기본값", Store.create(bad).settings().amtMax, 2000000, 0);
     }},
+    { id: "N", title: "예시 N · 데이터 불러오기 (양식 왕복·필수 열·날짜·열 이름)", run: function(ck){
+        var tpl = Importer.templates(DemoData.generate());
+        function tableOf(csv){ var d = Importer.decode(new TextEncoder().encode(csv)); return { rows: Importer.parseCsv(d.text), enc: d.encoding }; }
+        var q = tableOf(tpl.quotes), a = tableOf(tpl.actuals), ix = tableOf(tpl.index);
+        ck("양식 글자 UTF-8", q.enc, "UTF-8");
+        var qm = Importer.mapTable(q.rows, "quotes"), am = Importer.mapTable(a.rows, "actuals"), im = Importer.mapTable(ix.rows, "index");
+        ck("양식 열 맞추기 오류 없음", qm.errors.concat(am.errors, im.errors).join("/"), "");
+        var raw = Importer.toRaw(qm, am, im), D = DemoData.compute(DemoData.inspect(raw)), demo = DemoData.get();
+        ck("N-1 원본 행", D.rawCount.quotes + "/" + D.rawCount.actuals, "365/366");
+        ck("N-1 계산/보류/예외", D.projects.length + "/" + D.held.length + "/" + D.exceptions.length, "70/2/5");
+        ck("N-1 보류 번호", D.held.map(function(h){ return h.id; }).join(","), "PJ-3021,PJ-3034");
+        ck("N-1 총차이", D.projects.reduce(function(s, t){ return s + t.diff; }, 0), 43987226.1, WON);
+        ck("N-1 확인 필요", D.projects.filter(function(t){ return t.flags.length; }).length, 27, 0);
+        ck("N-1 기종 수", D.kinds.length, 6, 0);
+        var byId = {}; demo.projects.forEach(function(t){ byId[t.id] = t; });
+        ck("N-1 프로젝트마다 가상 데이터와 같음", D.projects.every(function(t){ var d = byId[t.id]; return d && Math.abs(d.diff - t.diff) < 1e-6 && d.flags.join() === t.flags.join() && Math.abs((d.coverage || 0) - (t.coverage || 0)) < 1e-9; }), true);
+        var bad = Importer.mapTable(Importer.parseCsv("프로젝트번호,재료코드,실제사용량,실제단가\r\nX,CU,1,1\r\n"), "actuals");
+        ck("N-3 생산완료월 없음 → 거절", bad.ok + "/" + bad.errors.join(), "false/실적 파일: 생산완료월 열이 없습니다");
+        ck("월 모양 6가지", ["2026-03", "2026.3", "2026/03", "202603", "2026년 3월", 46082].map(Importer.month).join(","), "2026-03,2026-03,2026-03,2026-03,2026-03,2026-03");
+        ck("엑셀 날짜 일련번호", Importer.date(46097), "2026-03-16");
+        ck("쉼표·원 붙은 숫자", Importer.num("1,234,567원"), 1234567, 0);
+        var al = Importer.mapTable(Importer.parseCsv("프로젝트 번호,기종,생산 수량,판매 금액,견적 기준월,재료 코드,견적 사용량(SQ),견적 단가(SP)\r\nX,K,1,10,2026-01,CU,1,1\r\n"), "quotes");
+        ck("띄어쓰기·괄호 열 이름 인식", al.ok, true);
+        var csvq = Importer.parseCsv('a,"b,c","d""e"\r\n1,2,3');
+        ck("CSV 따옴표·쉼표", JSON.stringify(csvq), '[["a","b,c","d\\"e"],["1","2","3"]]');
+    }},
     { id: "DATA", title: "가상 데이터 · 예외 판정 (spec R0, R4.3)", run: function(ck){
         var D = DemoData.get();
         var reasons = {}; D.exceptions.forEach(function(e){ reasons[e.reason + "|" + e.pj] = e.action; });
@@ -1278,7 +1368,7 @@ var DemoData = (function(C){
       qs.forEach(function(q){
         var a = ga[pj].filter(function(r){ return r.code === q.code; })[0];
         if (!a){ problems.push(["실적 없음", q.code, "견적", q.name + " 견적 행이 있는데 실적에 이 재료가 없음"]); return; }
-        if (q.unit !== a.unit){ problems.push(["단위 불일치", q.code, "견적·실적", q.name + ": 견적 " + q.unit + " · 실적 " + a.unit + " (단위를 추측해 바꾸지 않음)"]); return; }
+        if (q.unit && a.unit && q.unit !== a.unit){ problems.push(["단위 불일치", q.code, "견적·실적", q.name + ": 견적 " + q.unit + " · 실적 " + a.unit + " (단위를 추측해 바꾸지 않음)"]); return; }
         if (q.amount !== undefined){
           if (bad(q.amount) || bad(a.amount)){ problems.push(["빈 값", q.code, "견적·실적", q.name + " 금액이 비었거나 0 이하"]); return; }
           mats.push({ code: q.code, name: q.name, type: "total", pre: q.amount, post: a.amount });
@@ -1315,20 +1405,33 @@ var DemoData = (function(C){
       return t;
     });
     var lastMonth = computed.reduce(function(m, t){ return t.doneMonth > m ? t.doneMonth : m; }, "0000-00");
+    var firstMonth = computed.reduce(function(m, t){ return t.doneMonth < m ? t.doneMonth : m; }, "9999-99");
+    if (!computed.length){ lastMonth = firstMonth = "2026-01"; }
+    var kinds = [];
+    ins.projects.forEach(function(p){ if (kinds.indexOf(p.kind) < 0) kinds.push(p.kind); });
+    kinds.sort();
     var ORDER = ["중복 행", "견적 없음", "실적 없음", "단위 불일치", "빈 값", "검산 불일치"];
     exceptions.sort(function(x, y){ return ORDER.indexOf(x.reason) - ORDER.indexOf(y.reason) || (x.pj < y.pj ? -1 : x.pj > y.pj ? 1 : 0); });
     return { projects: computed, held: ins.held, exceptions: exceptions, index: ins.index, lastMonth: lastMonth,
-             kinds: KINDS.map(function(k){ return k.kind; }), firstMonth: FIRST, rawCount: ins.rawCount };
+             kinds: kinds, firstMonth: firstMonth, rawCount: ins.rawCount };
   }
 
   function buildData(raw, settings){ return compute(inspect(raw), settings); }
 
-  var inspected = null;
-  function get(settings){                       // 원본 검사는 한 번만, 계산은 설정마다
-    if (!inspected) inspected = inspect(generate());
-    return compute(inspected, settings);
+  var demoInspected = null, cur = { inspected: null, source: { kind: "demo" } };
+  function get(settings){                       // 언제나 가상 데이터 (자가 검산·정답 대조용). 원본 검사는 한 번만
+    if (!demoInspected) demoInspected = inspect(generate());
+    return compute(demoInspected, settings);
   }
-  return { generate: generate, inspect: inspect, compute: compute, buildData: buildData, get: get };
+  function current(settings){ return cur.inspected ? compute(cur.inspected, settings) : get(settings); }   // 지금 화면 데이터
+  function use(raw, meta){ cur = { inspected: inspect(raw), raw: raw, source: Object.assign({ kind: "file" }, meta || {}) }; return cur.inspected; }
+  function currentRaw(){ return cur.raw || generate(); }
+  function useDemo(){ cur = { inspected: null, source: { kind: "demo" } }; }
+  function source(){ return cur.source; }
+  function saveState(){ return cur; }
+  function restoreState(s){ cur = s; }
+  return { generate: generate, inspect: inspect, compute: compute, buildData: buildData, get: get, current: current,
+           use: use, useDemo: useDemo, source: source, saveState: saveState, restoreState: restoreState, currentRaw: currentRaw };
 })(CostCalc);
 </script>
 
@@ -1686,9 +1789,257 @@ var KindModel = (function(C){
 </script>
 
 <script>
+/* =========================================================
+   파일 불러오기 · 양식 (조각 9 · spec R6 — 임원 검수 1차 반려 사유 1)
+   - 엑셀 xlsx: 브라우저 기본 압축 풀기(DecompressionStream)로 첫 번째 시트만 읽는다 (외부 라이브러리 없음)
+   - CSV: UTF-8을 먼저, 깨지면 CP949(한국어 엑셀 기본)로 다시 읽는다
+   - 파일은 브라우저 안에서만 읽고 밖으로 보내지 않는다
+   ========================================================= */
+var Importer = (function(){
+  "use strict";
+  var SPEC = {
+    quotes: { label: "견적", fields: {
+      pj: ["프로젝트번호", "프로젝트", "PJ번호", "PJ", "project"], ver: ["견적버전", "버전", "version"], quoteDate: ["견적작성일", "작성일", "견적일"],
+      baseMonth: ["견적기준월", "기준월"], kind: ["기종", "모델", "제품"], customer: ["고객", "고객사", "거래처"],
+      qty: ["생산수량", "수량", "qty"], price: ["판매금액", "견적판매금액", "판매가", "매출액"], code: ["재료코드", "자재코드"],
+      name: ["재료명", "자재명", "품명"], unit: ["단위", "unit"], sq: ["견적사용량", "사용량", "SQ"], sp: ["견적단가", "적용단가", "단가", "SP"],
+      index: ["단가출처지표", "출처지표", "지표"], amount: ["견적금액", "금액"] },
+      required: ["pj", "kind", "qty", "price", "baseMonth", "code"], oneOf: [["sq", "sp"], ["amount"]] },
+    actuals: { label: "실적", fields: {
+      pj: ["프로젝트번호", "프로젝트", "PJ번호", "PJ", "project"], code: ["재료코드", "자재코드"], unit: ["단위", "unit"],
+      aq: ["실제사용량", "사용량", "AQ"], ap: ["실제단가", "실제출고단가", "출고단가", "단가", "AP"], amount: ["실적금액", "실제금액", "금액"],
+      doneMonth: ["생산완료월", "완료월", "생산월"] },
+      required: ["pj", "code", "doneMonth"], oneOf: [["aq", "ap"], ["amount"]] },
+    index: { label: "지표", fields: { name: ["지표명", "지표"], month: ["월", "기준월"], value: ["값", "가격", "단가"] },
+      required: ["name", "month", "value"], oneOf: [] }
+  };
+  var LABEL = { pj: "프로젝트번호", ver: "견적버전", quoteDate: "견적작성일", baseMonth: "견적기준월", kind: "기종", customer: "고객", qty: "생산수량",
+    price: "판매금액", code: "재료코드", name: "재료명", unit: "단위", sq: "견적사용량", sp: "견적단가", index: "단가출처지표", amount: "견적금액",
+    aq: "실제사용량", ap: "실제단가", doneMonth: "생산완료월", month: "월", value: "값" };
+
+  function norm(h){ return String(h == null ? "" : h).replace(/\(.*?\)|\[.*?\]/g, "").replace(/[\s_·\-.\/]/g, "").toLowerCase(); }
+
+  /* ---- 글자 판별 (R6.2) ---- */
+  function decode(bytes){
+    var u8 = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes), enc = "UTF-8", text;
+    try { text = new TextDecoder("utf-8", { fatal: true }).decode(u8); }
+    catch (e) { text = new TextDecoder("euc-kr").decode(u8); enc = "CP949"; }
+    return { text: text.replace(/^﻿/, ""), encoding: enc };
+  }
+
+  /* ---- CSV (따옴표·줄바꿈·쉼표/탭/세미콜론) ---- */
+  function parseCsv(text){
+    var first = text.split(/\r?\n/)[0] || "", delim = ",";
+    [["\t", (first.match(/\t/g) || []).length], [";", (first.match(/;/g) || []).length]].forEach(function(d){
+      if (d[1] > (first.match(/,/g) || []).length) delim = d[0];
+    });
+    var rows = [], row = [], cell = "", q = false;
+    for (var i = 0; i < text.length; i++){
+      var ch = text[i];
+      if (q){
+        if (ch === '"'){ if (text[i + 1] === '"'){ cell += '"'; i++; } else q = false; }
+        else cell += ch;
+      } else if (ch === '"') q = true;
+      else if (ch === delim){ row.push(cell); cell = ""; }
+      else if (ch === "\n" || ch === "\r"){
+        if (ch === "\r" && text[i + 1] === "\n") i++;
+        row.push(cell); rows.push(row); row = []; cell = "";
+      } else cell += ch;
+    }
+    if (cell !== "" || row.length){ row.push(cell); rows.push(row); }
+    return rows;
+  }
+
+  /* ---- xlsx (zip) 첫 번째 시트 ---- */
+  function u16(b, o){ return b[o] | (b[o + 1] << 8); }
+  function u32(b, o){ return (b[o] | (b[o + 1] << 8) | (b[o + 2] << 16) | (b[o + 3] << 24)) >>> 0; }
+  function unzipEntries(buf){
+    var b = new Uint8Array(buf), eocd = -1;
+    for (var i = b.length - 22; i >= Math.max(0, b.length - 65557); i--){ if (u32(b, i) === 0x06054b50){ eocd = i; break; } }
+    if (eocd < 0) throw new Error("엑셀(xlsx) 파일이 아닙니다");
+    var n = u16(b, eocd + 10), p = u32(b, eocd + 16), out = {};
+    for (var k = 0; k < n; k++){
+      if (u32(b, p) !== 0x02014b50) throw new Error("엑셀 파일 구조를 읽을 수 없습니다");
+      var method = u16(b, p + 10), csize = u32(b, p + 20), nlen = u16(b, p + 28), elen = u16(b, p + 30), clen = u16(b, p + 32), lho = u32(b, p + 42);
+      var name = new TextDecoder("utf-8").decode(b.subarray(p + 46, p + 46 + nlen));
+      var start = lho + 30 + u16(b, lho + 26) + u16(b, lho + 28);
+      out[name] = { method: method, data: b.subarray(start, start + csize) };
+      p += 46 + nlen + elen + clen;
+    }
+    return out;
+  }
+  function inflate(entry){
+    if (entry.method === 0) return Promise.resolve(entry.data);
+    if (entry.method !== 8) return Promise.reject(new Error("지원하지 않는 압축 방식입니다"));
+    if (typeof DecompressionStream === "undefined") return Promise.reject(new Error("이 브라우저는 엑셀을 직접 읽지 못합니다 — CSV로 저장해 올려 주세요"));
+    var ds = new DecompressionStream("deflate-raw");
+    var stream = new Blob([entry.data]).stream().pipeThrough(ds);
+    return new Response(stream).arrayBuffer().then(function(ab){ return new Uint8Array(ab); });
+  }
+  function xmlText(u8){ return new DOMParser().parseFromString(new TextDecoder("utf-8").decode(u8), "application/xml"); }
+  function colIndex(ref){ var s = ref.replace(/\d+/g, ""), n = 0; for (var i = 0; i < s.length; i++) n = n * 26 + (s.charCodeAt(i) - 64); return n - 1; }
+  function readXlsx(buf){
+    var E;
+    try { E = unzipEntries(buf); } catch (e) { return Promise.reject(e); }
+    function get(name){ return E[name] ? inflate(E[name]).then(xmlText) : Promise.resolve(null); }
+    return Promise.all([get("xl/workbook.xml"), get("xl/_rels/workbook.xml.rels"), get("xl/sharedStrings.xml")]).then(function(r){
+      var wb = r[0], rels = r[1], sst = r[2], sheetPath = "xl/worksheets/sheet1.xml";
+      if (wb && rels){
+        var first = wb.getElementsByTagName("sheet")[0];
+        var rid = first && (first.getAttribute("r:id") || first.getAttributeNS("http://schemas.openxmlformats.org/officeDocument/2006/relationships", "id"));
+        Array.prototype.forEach.call(rels.getElementsByTagName("Relationship"), function(x){
+          if (x.getAttribute("Id") === rid){ var t = x.getAttribute("Target"); sheetPath = t.charAt(0) === "/" ? t.slice(1) : "xl/" + t; }
+        });
+      }
+      var shared = sst ? Array.prototype.map.call(sst.getElementsByTagName("si"), function(si){
+        return Array.prototype.map.call(si.getElementsByTagName("t"), function(t){ return t.textContent; }).join("");
+      }) : [];
+      return get(sheetPath).then(function(sheet){
+        if (!sheet) throw new Error("첫 번째 시트를 찾지 못했습니다");
+        var rows = [];
+        Array.prototype.forEach.call(sheet.getElementsByTagName("row"), function(rw){
+          var line = [];
+          Array.prototype.forEach.call(rw.getElementsByTagName("c"), function(c){
+            var t = c.getAttribute("t"), v = c.getElementsByTagName("v")[0], val = "";
+            if (t === "s") val = shared[+(v && v.textContent)] || "";
+            else if (t === "inlineStr"){ var is = c.getElementsByTagName("t")[0]; val = is ? is.textContent : ""; }
+            else if (t === "b") val = v && v.textContent === "1" ? "TRUE" : "FALSE";
+            else if (v){ val = t === "str" ? v.textContent : Number(v.textContent); }
+            var ci = colIndex(c.getAttribute("r") || "A1");
+            while (line.length < ci) line.push("");
+            line[ci] = val;
+          });
+          rows.push(line);
+        });
+        return rows;
+      });
+    });
+  }
+
+  /* ---- 값 읽기 (R6.4) ---- */
+  function num(v){
+    if (v === null || v === undefined) return null;
+    if (typeof v === "number") return v;
+    var s = String(v).replace(/[,\s원₩]/g, "");
+    if (s === "") return null;
+    var n = Number(s);
+    return isFinite(n) ? n : NaN;
+  }
+  function serialDate(n){ var d = new Date(Date.UTC(1899, 11, 30) + Math.round(n) * 86400000); return d.toISOString().slice(0, 10); }
+  function month(v){
+    if (v === null || v === undefined || v === "") return null;
+    if (typeof v === "number"){
+      if (v > 190001 && v < 300000 && Math.floor(v) === v) return String(v).slice(0, 4) + "-" + String(v).slice(4, 6);
+      if (v > 1000 && v < 100000) return serialDate(v).slice(0, 7);
+      return null;
+    }
+    var s = String(v).trim(), m;
+    if ((m = s.match(/^(\d{4})\s*[-.\/년]\s*(\d{1,2})/))) return m[1] + "-" + ("0" + m[2]).slice(-2);
+    if ((m = s.match(/^(\d{4})(\d{2})$/))) return m[1] + "-" + m[2];
+    if (/^\d{5}(\.\d+)?$/.test(s)) return serialDate(Number(s)).slice(0, 7);
+    return s;      // 알 수 없는 모양은 그대로 → 지표·월 비교에서 맞지 않아 드러남
+  }
+  function date(v){
+    if (v === null || v === undefined || v === "") return "";
+    if (typeof v === "number") return v > 1000 && v < 100000 ? serialDate(v) : String(v);
+    var s = String(v).trim(), m;
+    if ((m = s.match(/^(\d{4})\s*[-.\/년]\s*(\d{1,2})\s*[-.\/월]\s*(\d{1,2})/))) return m[1] + "-" + ("0" + m[2]).slice(-2) + "-" + ("0" + m[3]).slice(-2);
+    if (/^\d{5}(\.\d+)?$/.test(s)) return serialDate(Number(s));
+    return s;
+  }
+  function str(v){ return v === null || v === undefined ? "" : String(v).trim(); }
+
+  /* ---- 열 이름 맞추기 + 필수 열 검사 (R6.3) ---- */
+  function mapTable(table, kind){
+    var spec = SPEC[kind], headerRow = -1;
+    for (var i = 0; i < Math.min(table.length, 10); i++){        // 위쪽 제목 줄이 있어도 머리줄을 찾는다
+      var cells = table[i].map(norm);
+      if (cells.indexOf(norm(spec.fields[spec.required[0]][0])) >= 0 || spec.fields[spec.required[0]].some(function(a){ return cells.indexOf(norm(a)) >= 0; })){ headerRow = i; break; }
+    }
+    var errors = [], mapping = {};
+    if (headerRow < 0) return { ok: false, errors: [spec.label + " 파일: 머리줄(" + LABEL[spec.required[0]] + " 열)을 찾지 못했습니다"], rows: [], mapping: {} };
+    var head = table[headerRow].map(norm), used = {};
+    Object.keys(spec.fields).forEach(function(f){
+      spec.fields[f].some(function(alias){
+        var idx = head.indexOf(norm(alias));
+        if (idx >= 0 && !used[idx]){ mapping[f] = idx; used[idx] = true; return true; }
+        return false;
+      });
+    });
+    spec.required.forEach(function(f){ if (mapping[f] === undefined) errors.push(spec.label + " 파일: " + LABEL[f] + " 열이 없습니다"); });
+    if (spec.oneOf.length && !spec.oneOf.some(function(g){ return g.every(function(f){ return mapping[f] !== undefined; }); }))
+      errors.push(spec.label + " 파일: (" + spec.oneOf.map(function(g){ return g.map(function(f){ return LABEL[f]; }).join("·"); }).join(") 또는 (") + ") 열이 필요합니다");
+    var rows = [];
+    for (var r = headerRow + 1; r < table.length; r++){
+      var line = table[r];
+      if (!line || line.every(function(c){ return str(c) === ""; })) continue;
+      var o = {};
+      Object.keys(mapping).forEach(function(f){ o[f] = line[mapping[f]]; });
+      rows.push(o);
+    }
+    return { ok: errors.length === 0, errors: errors, rows: rows, mapping: mapping, header: table[headerRow] };
+  }
+
+  /* ---- 엔진이 쓰는 원본 행으로 ---- */
+  function toRaw(qm, am, im){
+    var quotes = qm.rows.map(function(o){
+      var hasSplit = (qm.mapping.sq !== undefined || qm.mapping.sp !== undefined) && (str(o.sq) !== "" || str(o.sp) !== "");
+      var base = { pj: str(o.pj), ver: str(o.ver), quoteDate: date(o.quoteDate), baseMonth: month(o.baseMonth), kind: str(o.kind),
+                   customer: str(o.customer), qty: num(o.qty), price: num(o.price), code: str(o.code), name: str(o.name) || str(o.code), unit: str(o.unit) || null };
+      if (!hasSplit && qm.mapping.amount !== undefined && str(o.amount) !== "") base.amount = num(o.amount);
+      else { base.sq = num(o.sq); base.sp = num(o.sp); base.index = str(o.index) || null; }
+      return base;
+    });
+    var actuals = am.rows.map(function(o){
+      var hasSplit = (am.mapping.aq !== undefined || am.mapping.ap !== undefined) && (str(o.aq) !== "" || str(o.ap) !== "");
+      var base = { pj: str(o.pj), code: str(o.code), unit: str(o.unit) || null, doneMonth: month(o.doneMonth) };
+      if (!hasSplit && am.mapping.amount !== undefined && str(o.amount) !== "") base.amount = num(o.amount);
+      else { base.aq = num(o.aq); base.ap = num(o.ap); }
+      return base;
+    });
+    var index = {};
+    if (im) im.rows.forEach(function(o){
+      var n = str(o.name), m = month(o.month), v = num(o.value);
+      if (n && m && typeof v === "number" && isFinite(v)){ (index[n] = index[n] || {})[m] = v; }
+    });
+    return { quotes: quotes, actuals: actuals, index: index };
+  }
+
+  /* ---- 파일 하나 읽기: xlsx면 엑셀로, 아니면 CSV ---- */
+  function readFile(buf, name){
+    var b = new Uint8Array(buf);
+    var isZip = b.length > 4 && b[0] === 0x50 && b[1] === 0x4b && b[2] === 0x03 && b[3] === 0x04;
+    if (isZip) return readXlsx(buf).then(function(rows){ return { rows: rows, format: "엑셀(xlsx)", encoding: "" }; });
+    if (/\.xls$/i.test(name || "")) return Promise.reject(new Error("옛 엑셀(.xls)은 읽지 못합니다 — xlsx나 CSV로 저장해 주세요"));
+    var d = decode(b);
+    return Promise.resolve({ rows: parseCsv(d.text), format: "CSV", encoding: d.encoding });
+  }
+
+  /* ---- 양식 (R6.8): 원본 행 → CSV 표 ---- */
+  var COLS = {
+    quotes: [["pj", "프로젝트번호"], ["ver", "견적버전"], ["quoteDate", "견적작성일"], ["baseMonth", "견적기준월"], ["kind", "기종"], ["customer", "고객"],
+             ["qty", "생산수량"], ["price", "판매금액"], ["code", "재료코드"], ["name", "재료명"], ["unit", "단위"], ["sq", "견적사용량"], ["sp", "견적단가"],
+             ["index", "단가출처지표"], ["amount", "견적금액"]],
+    actuals: [["pj", "프로젝트번호"], ["code", "재료코드"], ["unit", "단위"], ["aq", "실제사용량"], ["ap", "실제단가"], ["amount", "실적금액"], ["doneMonth", "생산완료월"]]
+  };
+  function cell(v){ if (v === null || v === undefined) return ""; var s = String(v); return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; }
+  function toCsv(table){ return "﻿" + table.map(function(r){ return r.map(cell).join(","); }).join("\r\n") + "\r\n"; }
+  function templates(raw){
+    function sheet(kind, rows){ return [COLS[kind].map(function(c){ return c[1]; })].concat(rows.map(function(o){ return COLS[kind].map(function(c){ return o[c[0]]; }); })); }
+    var idx = [["지표명", "월", "값"]];
+    Object.keys(raw.index).forEach(function(n){ Object.keys(raw.index[n]).sort().forEach(function(m){ idx.push([n, m, raw.index[n][m]]); }); });
+    return { quotes: toCsv(sheet("quotes", raw.quotes)), actuals: toCsv(sheet("actuals", raw.actuals)), index: toCsv(idx) };
+  }
+
+  return { decode: decode, parseCsv: parseCsv, readXlsx: readXlsx, readFile: readFile, mapTable: mapTable, toRaw: toRaw,
+           month: month, date: date, num: num, toCsv: toCsv, templates: templates, LABEL: LABEL };
+})();
+</script>
+
+<script>
 (function(){
   "use strict";
-  var VIEWS = ["kinds","projects","exceptions","settings"];
+  var VIEWS = ["kinds","projects","exceptions","data","settings"];
 
   function show(name, keepScroll){
     if (VIEWS.indexOf(name) < 0) name = "kinds";
@@ -1871,18 +2222,71 @@ var KindModel = (function(C){
     return r;
   }
 
-  function renderSelfTest(){
-    var sx = window.scrollX, sy = window.scrollY, pane = document.getElementById("pj-detail"), py = pane.scrollTop, act = document.activeElement;
-    var beforeState = JSON.stringify(listState) + "|" + selectedId + "|" + selectedKind + "|" + JSON.stringify(STORE.state);
-    var results = SelfTest.run().concat([uiChecks(), detailChecks(), kindChecks(), settingsChecks()]), total = 0, passed = 0, html = "";
-    window.scrollTo(sx, sy); pane.scrollTop = py; if (act && act.focus && act !== document.body) act.focus({ preventScroll: true }); else if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
-    // 최종 점검에서 찾은 버그(검산이 화면 스크롤·선택을 바꿈)가 다시 생기지 않게
-    var afterState = JSON.stringify(listState) + "|" + selectedId + "|" + selectedKind + "|" + JSON.stringify(STORE.state);
-    var side = { id: "SIDE", title: "검산 뒤 화면 상태 그대로 (최종 점검)", total: 3, passed: 0, fails: [] };
-    if (afterState === beforeState) side.passed++; else side.fails.push("필터·선택·저장 상태가 바뀜: " + beforeState.slice(0, 80) + " → " + afterState.slice(0, 80));
-    if (window.scrollY === sy) side.passed++; else side.fails.push("화면 스크롤이 바뀜: " + sy + " → " + window.scrollY);
-    if (pane.scrollTop === py) side.passed++; else side.fails.push("상세 칸 스크롤이 바뀜: " + py + " → " + pane.scrollTop);
-    results.push(side);
+  // 예시 N-2: 진짜 엑셀(xlsx) + CP949 CSV (파이썬으로 만든 파일을 그대로 넣음). 압축 풀기를 기다려야 해서 비동기
+  function b64bytes(s){ var bin = atob(s), u = new Uint8Array(bin.length); for (var i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return u; }
+  function asyncChecks(){
+    var r = { id: "N-2", title: "예시 N-2 · 진짜 엑셀(xlsx) + CP949 CSV", total: 0, passed: 0, fails: [] };
+    function ck(label, got, want, tol){
+      r.total++;
+      var ok = (typeof want === "number" && typeof got === "number") ? Math.abs(got - want) < (tol || 1e-9) : got === want;
+      if (ok) r.passed++; else r.fails.push(label + ": 결과 " + got + " / 정답 " + want);
+    }
+    var X = "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", P = "x8G3zsGnxq65+MijLMDnt+HE2rXlLL3Hwaa757/rt64svcfBprTcsKEsvcfA+7Hdvtcsu/276r/Pt+G/+Q0KWC0xLENVLDEyMS43LDE4ODk0LCwyMDI2LjA1DQpYLTEsUFJPQywsLDE2MDAwMDAsMjAyNi81DQo=";
+    return Promise.all([Importer.readFile(b64bytes(X).buffer, "견적.xlsx"), Importer.readFile(b64bytes(P).buffer, "실적.csv")]).then(function(rs){
+      ck("견적을 엑셀로 읽음", rs[0].format, "엑셀(xlsx)");
+      ck("실적 글자 CP949 판별", rs[1].encoding, "CP949");
+      ck("CP949 한글 머리줄", String(rs[1].rows[0][0]), "프로젝트번호");
+      var qm = Importer.mapTable(rs[0].rows, "quotes"), am = Importer.mapTable(rs[1].rows, "actuals");
+      ck("열 맞추기 오류 없음", qm.errors.concat(am.errors).join("/"), "");
+      var raw = Importer.toRaw(qm, am, null);
+      ck("견적 기준월 46082 → 2026-03", raw.quotes[0].baseMonth, "2026-03");
+      ck("견적 작성일 46097 → 2026-03-16", raw.quotes[0].quoteDate, "2026-03-16");
+      ck("생산완료월 2026.05·2026/5", raw.actuals.map(function(x){ return x.doneMonth; }).join(","), "2026-05,2026-05");
+      var D = DemoData.compute(DemoData.inspect(raw)), t = D.projects[0];
+      ck("계산 1개 · 예외 0 (단위 열 없음 → 불일치 아님)", D.projects.length + "/" + D.exceptions.length, "1/0");
+      var cu = t && t.materials.filter(function(m){ return m.code === "CU"; })[0];
+      ck("동선 사전", cu && cu.pre, 2108750, 1); ck("동선 사후", cu && cu.post, 2299399.8, 1);
+      ck("프로젝트 사전", t && t.pre, 3608750, 1); ck("프로젝트 사후", t && t.post, 3899399.8, 1); ck("차이", t && t.diff, 290649.8, 1);
+      ck("확인 필요 없음", t && t.flags.join(","), "");
+    }).then(function(){ return uiImportChecks(ck, X, P); })
+      .catch(function(e){ r.total++; r.fails.push("실행 오류: " + (e && e.message || e)); }).then(function(){ return r; });
+  }
+
+  // 조각 9 점검: 데이터 탭에서 실제로 파일을 골라 "불러오기"를 누르는 흐름. 끝나면 사용자의 데이터·저장값을 그대로 되돌린다
+  function uiImportChecks(ck, X, P){
+    var ds = DemoData.saveState(), bst = Store.browserStorage(), savedRaw = null, realStore = STORE;
+    var saveList = Object.assign({}, listState), saveSel = selectedId, saveKind = selectedKind;
+    try { savedRaw = bst ? bst.getItem(DATA_KEY) : null; } catch (e) {}
+    var inQ = document.getElementById("dz-q"), inA = document.getElementById("dz-a"), inI = document.getElementById("dz-i");
+    function put(input, bytes, name){ var dt = new DataTransfer(); if (bytes) dt.items.add(new File([bytes], name)); input.files = dt.files; }
+    function restore(){
+      put(inQ, null); put(inA, null); put(inI, null); showDz("", "");
+      try { if (bst){ if (savedRaw === null) bst.removeItem(DATA_KEY); else bst.setItem(DATA_KEY, savedRaw); } } catch (e) {}
+      STORE = realStore; DemoData.restoreState(ds); listState = saveList; selectedId = saveSel; selectedKind = saveKind;
+      refreshAll(); buildSettingsForm(); setStatus("저장된 기준값으로 계산 중 · 확인 필요 " + flaggedCount(DATA) + "건");
+    }
+    STORE = Store.create(Store.memoryStorage());
+    put(inQ, b64bytes(X), "견적.xlsx"); put(inA, b64bytes(P), "실적.csv"); put(inI, null);
+    return loadFiles().then(function(ok){
+      ck("화면 불러오기 성공", ok, true);
+      ck("출처 배지 실데이터", document.getElementById("src-badge").textContent, "실데이터");
+      ck("각주에 파일 이름", /견적\.xlsx · 실적\.csv/.test(document.getElementById("src-foot").textContent), true);
+      ck("결과 안내", /불러왔습니다\. 계산 1개/.test(document.getElementById("dz-result").textContent), true);
+      ck("목록이 새 데이터", document.querySelectorAll("#pj-cards .pj[data-id]").length, 1);
+      ck("기종 화면도 새 데이터", document.querySelectorAll("#kd-cards .kd").length, 1);
+      var bad = new TextEncoder().encode("프로젝트번호,재료코드,실제사용량,실제단가\r\nX-1,CU,1,1\r\n");
+      put(inA, bad, "실적_열빠짐.csv");
+      return loadFiles();
+    }).then(function(ok){
+      ck("필수 열 빠진 파일 거절", ok, false);
+      ck("거절 안내", /생산완료월 열이 없습니다/.test(document.getElementById("dz-result").textContent), true);
+      ck("거절해도 보던 데이터 그대로", document.querySelectorAll("#pj-cards .pj[data-id]").length, 1);
+    }).then(restore, function(e){ restore(); throw e; });
+  }
+
+  var selfTestBanner = null;
+  function paintSelfTest(results){
+    var total = 0, passed = 0, html = "";
     results.forEach(function(r){
       total += r.total; passed += r.passed;
       var ok = r.fails.length === 0;
@@ -1895,10 +2299,36 @@ var KindModel = (function(C){
     document.getElementById("st-list").innerHTML = html;
     document.getElementById("st-score").textContent = passed + " / " + total;
     document.getElementById("st-note").textContent = allOk
-      ? "정답.md 예시 A~M, 가상 데이터 점검, 화면 점검이 모두 정답과 일치합니다 (금액 1원·비율 0.01%p 미만)"
-      : "정답과 다른 항목이 있습니다. 다음 조각으로 넘어가지 않습니다";
+      ? "정답.md 예시 A~N, 가상 데이터 점검, 화면 점검이 모두 정답과 일치합니다 (금액 1원·비율 0.01%p 미만). 검산은 언제나 가상 데이터·기본 기준값으로 돌고, 끝나면 지금 데이터로 되돌립니다."
+      : "정답과 다른 항목이 있습니다";
     document.querySelector(".st-summary").classList.toggle("fail", !allOk);
+    if (selfTestBanner) selfTestBanner.textContent = "selftest " + passed + "/" + total + (allOk ? " PASS" : " FAIL") + " · errors " + window.__errs.length + (window.__errs.length ? " (" + window.__errs[0] + ")" : "");
     return { total: total, passed: passed };
+  }
+
+  function renderSelfTest(){
+    var sx = window.scrollX, sy = window.scrollY, pane = document.getElementById("pj-detail"), py = pane.scrollTop, act = document.activeElement;
+    var beforeState = JSON.stringify(listState) + "|" + selectedId + "|" + selectedKind + "|" + JSON.stringify(STORE.state) + "|" + JSON.stringify(DemoData.source());
+    // 검산은 언제나 가상 데이터·기본 기준값으로 (실데이터를 불러온 상태에서도) — 끝나면 지금 데이터로 되돌린다 (조각 9)
+    var realStore = STORE, ds = DemoData.saveState(), saveList = Object.assign({}, listState), saveSel = selectedId, saveKind = selectedKind;
+    STORE = Store.create(Store.memoryStorage()); DemoData.useDemo(); listState = Object.assign({}, L.DEFAULT); refreshAll();
+    var results;
+    try { results = SelfTest.run().concat([uiChecks(), detailChecks(), kindChecks(), settingsChecks()]); }
+    finally {
+      STORE = realStore; DemoData.restoreState(ds); listState = saveList; selectedId = saveSel; selectedKind = saveKind;
+      refreshAll(); buildSettingsForm(); setStatus("저장된 기준값으로 계산 중 · 확인 필요 " + flaggedCount(DATA) + "건");
+    }
+    window.scrollTo(sx, sy); pane.scrollTop = py; if (act && act.focus && act !== document.body) act.focus({ preventScroll: true }); else if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+    // 최종 점검에서 찾은 버그(검산이 화면 스크롤·선택을 바꿈)가 다시 생기지 않게
+    var afterState = JSON.stringify(listState) + "|" + selectedId + "|" + selectedKind + "|" + JSON.stringify(STORE.state) + "|" + JSON.stringify(DemoData.source());
+    var side = { id: "SIDE", title: "검산 뒤 화면 상태 그대로 (최종 점검)", total: 3, passed: 0, fails: [] };
+    if (afterState === beforeState) side.passed++; else side.fails.push("필터·선택·저장 상태가 바뀜: " + beforeState.slice(0, 80) + " → " + afterState.slice(0, 80));
+    if (window.scrollY === sy) side.passed++; else side.fails.push("화면 스크롤이 바뀜: " + sy + " → " + window.scrollY);
+    if (pane.scrollTop === py) side.passed++; else side.fails.push("상세 칸 스크롤이 바뀜: " + py + " → " + pane.scrollTop);
+    results.push(side);
+    var sum = paintSelfTest(results);
+    asyncChecks().then(function(r){ results.push(r); paintSelfTest(results); });
+    return sum;
   }
   /* ---- 예외 화면 (spec R4.3) ---- */
   function renderExceptions(D){
@@ -1918,7 +2348,13 @@ var KindModel = (function(C){
     }).join("") : '<div class="card">예외가 없습니다.</div>';
   }
   var STORE = Store.create(Store.browserStorage());           // 조각 6: 저장된 기준값·메모
-  var DATA = DemoData.get(STORE.settings());
+  var DATA_KEY = "cvapp.data.v1";
+  (function loadImported(){                                  // 조각 9: 지난번에 불러온 실데이터 (R6.7)
+    var st = Store.browserStorage(); if (!st) return;
+    try { var o = JSON.parse(st.getItem(DATA_KEY) || "null"); if (o && o.raw && o.raw.quotes && o.raw.actuals) DemoData.use(o.raw, o.meta); }
+    catch (e) { DemoData.useDemo(); }
+  })();
+  var DATA = DemoData.current(STORE.settings());
   var CONF = {};
   renderExceptions(DATA);
 
@@ -1943,6 +2379,7 @@ var KindModel = (function(C){
 
   function fillSelects(){
     var k = document.getElementById("f-kind"), m = document.getElementById("f-month");
+    k.innerHTML = '<option value="">전체 기종</option>'; m.innerHTML = '<option value="">전체 생산월</option>';
     DATA.kinds.forEach(function(x){ k.insertAdjacentHTML("beforeend", '<option value="' + esc(x) + '">' + esc(x) + "</option>"); });
     for (var i = 0; ; i++){
       var mo = C.addMonths(DATA.lastMonth, -i);
@@ -2138,8 +2575,11 @@ var KindModel = (function(C){
       (STORE.canSave() ? "이 브라우저에 저장됨 (다른 기기와 공유되지 않음)" : "이 브라우저에서는 저장되지 않음");
   }
   function refreshAll(){
-    DATA = DemoData.get(STORE.settings());
-    renderExceptions(DATA); renderList(); renderOwner(); renderNotesInfo();
+    DATA = DemoData.current(STORE.settings());
+    if (listState.kind && DATA.kinds.indexOf(listState.kind) < 0) listState.kind = "";
+    if (listState.month && (listState.month < DATA.firstMonth || listState.month > DATA.lastMonth)) listState.month = "";
+    fillSelects(); renderExceptions(DATA); renderList(); renderOwner(); renderNotesInfo();
+    if (typeof renderSource === "function"){ renderSource(); renderDataNow(); }
     if (!sheet.hidden && sheetId){ sheetBody.innerHTML = detailHtml(sheetId); mountMemo(sheetBody, sheetId); }
     if (typeof renderKinds === "function") renderKinds();
   }
@@ -2252,6 +2692,107 @@ var KindModel = (function(C){
   });
   renderKinds();
 
+  /* ---- 데이터 탭: 불러오기 · 출처 표시 · 양식 (조각 9 · spec R6) ---- */
+  function nowStamp(){
+    var d = new Date(), p = function(n){ return (n < 10 ? "0" : "") + n; };
+    return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate()) + " " + p(d.getHours()) + ":" + p(d.getMinutes());
+  }
+  function download(name, text, type){
+    var blob = new Blob([text], { type: type || "text/csv;charset=utf-8" }), url = URL.createObjectURL(blob), a = document.createElement("a");
+    a.href = url; a.download = name; document.body.appendChild(a); a.click();
+    setTimeout(function(){ URL.revokeObjectURL(url); a.remove(); }, 1500);
+  }
+  function renderSource(){
+    var src = DemoData.source(), demo = src.kind !== "file";
+    ["src-badge", "src-badge-side"].forEach(function(id){
+      var el = document.getElementById(id);
+      el.textContent = demo ? "가상 데이터" : "실데이터";
+      el.title = demo ? "모든 숫자는 시연용 가상 데이터입니다" : "불러온 파일: " + (src.files || []).join(", ") + " · " + (src.at || "");
+      el.classList.toggle("real", !demo);
+    });
+    document.getElementById("src-foot").textContent = demo
+      ? "모든 숫자는 시연용 가상 데이터입니다 · 원인은 담당자가 확정합니다"
+      : "실데이터 · " + (src.files || []).join(" · ") + " · 불러온 시각 " + (src.at || "") + " · 원인은 담당자가 확정합니다";
+  }
+  function renderDataNow(){
+    var src = DemoData.source(), demo = src.kind !== "file", D = DATA;
+    var excluded = D.exceptions.filter(function(e){ return e.action === "제외"; }).length;
+    var rows = D.rawCount.quotes + D.rawCount.actuals;
+    document.getElementById("dz-now").innerHTML = "<h2>지금 보는 데이터</h2>" +
+      '<div class="dz-src"><span class="src-tag' + (demo ? "" : " file") + '">' + (demo ? "가상 데이터" : "실데이터") + "</span>" +
+      '<span class="hint" style="margin:0">' + (demo ? "시연용 고정 데이터 (실제 수치가 아님)" : esc((src.files || []).join(" · ")) + " · 불러온 시각 " + esc(src.at || "")) + "</span></div>" +
+      '<dl class="dz-stats num">' +
+        "<div><dt>원본 행</dt><dd>견적 " + D.rawCount.quotes + " · 실적 " + D.rawCount.actuals + "</dd></div>" +
+        "<div><dt>계산 · 보류 · 제외</dt><dd>" + D.projects.length + " · " + D.held.length + " · " + excluded + "</dd></div>" +
+        '<div><dt>예외 (예외 비율)</dt><dd data-k="exrate">' + D.exceptions.length + "건 (" + (rows ? (D.exceptions.length / rows * 100).toFixed(1) : "0.0") + "%)</dd></div>" +
+        "<div><dt>기간 · 기종</dt><dd>" + D.firstMonth + " ~ " + D.lastMonth + " · " + D.kinds.length + "개</dd></div>" +
+      "</dl>";
+  }
+  function showDz(kind, html){ var box = document.getElementById("dz-result"); box.className = "dz-result" + (kind ? " " + kind : ""); box.innerHTML = html; }
+  function readOne(file){
+    return file.arrayBuffer().then(function(buf){ return Importer.readFile(buf, file.name); })
+      .then(function(r){ r.name = file.name; return r; });
+  }
+  function mapNote(m, kind){
+    if (!m.header) return "";
+    var bits = [];
+    Object.keys(m.mapping).forEach(function(f){
+      var h = String(m.header[m.mapping[f]]).trim();
+      if (h !== Importer.LABEL[f]) bits.push(Importer.LABEL[f] + " ← “" + esc(h) + "”");
+    });
+    return bits.length ? '<div class="map">이름이 다른 열을 이렇게 맞췄습니다: ' + bits.join(", ") + "</div>" : "";
+  }
+  function loadFiles(){
+    var fq = document.getElementById("dz-q").files[0], fa = document.getElementById("dz-a").files[0], fi = document.getElementById("dz-i").files[0];
+    if (!fq || !fa){ showDz("err", "견적 파일과 실적 파일을 모두 골라 주세요."); return Promise.resolve(false); }
+    showDz("", "읽는 중…");
+    return Promise.all([readOne(fq), readOne(fa), fi ? readOne(fi) : null]).then(function(rs){
+      var qm = Importer.mapTable(rs[0].rows, "quotes"), am = Importer.mapTable(rs[1].rows, "actuals"), im = rs[2] ? Importer.mapTable(rs[2].rows, "index") : null;
+      var errs = qm.errors.concat(am.errors, im ? im.errors : []);
+      if (errs.length){
+        showDz("err", "<b>불러오지 않았습니다.</b> 지금 보던 데이터는 그대로입니다.<ul>" + errs.map(function(m){ return "<li>" + esc(m) + "</li>"; }).join("") + "</ul>");
+        return false;
+      }
+      var raw = Importer.toRaw(qm, am, im), test = DemoData.compute(DemoData.inspect(raw), STORE.settings());
+      if (!test.projects.length){
+        showDz("err", "<b>불러오지 않았습니다.</b> 계산할 수 있는 프로젝트가 0개입니다 (예외 " + test.exceptions.length + "건). 견적과 실적의 프로젝트번호·재료코드가 같은지 확인해 주세요.<ul>" +
+          test.exceptions.slice(0, 5).map(function(e){ return "<li>" + esc(e.reason + " · " + e.pj + " " + e.code + " — " + e.detail) + "</li>"; }).join("") + "</ul>");
+        return false;
+      }
+      var meta = { files: rs.filter(Boolean).map(function(r){ return r.name; }), at: nowStamp() };
+      DemoData.use(raw, meta);
+      var saved = false; var st = Store.browserStorage();
+      if (st){ try { st.setItem(DATA_KEY, JSON.stringify({ meta: meta, raw: raw })); saved = true; } catch (e) { saved = false; } }
+      refreshAll();
+      var fileInfo = rs.filter(Boolean).map(function(r, i){
+        var m = [qm, am, im][i];
+        return "<li><b>" + esc(r.name) + "</b> — " + r.format + (r.encoding ? " · " + r.encoding : "") + " · " + m.rows.length + "행" + mapNote(m) + "</li>";
+      }).join("");
+      showDz("ok", "<b>불러왔습니다.</b> 계산 " + DATA.projects.length + "개 · 계산 보류 " + DATA.held.length + "개 · 예외 " + DATA.exceptions.length + "건 · 기간 " + DATA.firstMonth + " ~ " + DATA.lastMonth +
+        (im && !Object.keys(raw.index).length ? " · 지표 파일에서 읽은 값이 없습니다" : "") +
+        "<ul>" + fileInfo + "</ul>" + (saved ? "" : "<b>이 브라우저에 저장되지 않아</b> 새로고침하면 가상 데이터로 돌아갑니다."));
+      return true;
+    }).catch(function(e){ showDz("err", "<b>파일을 읽지 못했습니다.</b> " + esc(e.message || e)); return false; });
+  }
+  ["dz-q", "dz-a", "dz-i"].forEach(function(id){
+    document.getElementById(id).addEventListener("change", function(){
+      document.getElementById("dz-load").disabled = !(document.getElementById("dz-q").files.length && document.getElementById("dz-a").files.length);
+    });
+  });
+  document.getElementById("dz-form").addEventListener("submit", function(e){ e.preventDefault(); loadFiles(); });
+  document.getElementById("dz-demo").addEventListener("click", function(){
+    DemoData.useDemo();
+    var st = Store.browserStorage(); try { if (st) st.removeItem(DATA_KEY); } catch (e) {}
+    refreshAll(); showDz("ok", "가상 데이터로 돌아왔습니다.");
+  });
+  document.querySelectorAll("[data-tpl]").forEach(function(b){
+    b.addEventListener("click", function(){
+      var k = b.getAttribute("data-tpl"), t = Importer.templates(DemoData.currentRaw());
+      download({ quotes: "견적_양식.csv", actuals: "실적_양식.csv", index: "지표_양식.csv" }[k], t[k]);
+    });
+  });
+  renderSource(); renderDataNow();
+
   buildSettingsForm(); renderOwner(); renderNotesInfo();
   setStatus("저장된 기준값으로 계산 중 · 확인 필요 " + flaggedCount(DATA) + "건");
 
@@ -2285,11 +2826,10 @@ var KindModel = (function(C){
   window.addEventListener("hashchange", function(){ if ((location.hash || "").slice(1).split("?")[0] === "settings") runSelfTestOnce(); });
   // 검증용: ?selftest 로 열면 결과를 왼쪽 위에 띄운다 (평소에는 아무것도 안 함)
   if (location.search.indexOf("selftest") >= 0){
-    var st = runSelfTestOnce();
-    var b = document.createElement("div");
-    b.style.cssText = "position:fixed;left:4px;top:4px;z-index:99;background:#111;color:#0f0;font:12px/1.3 monospace;padding:4px 6px;border-radius:4px";
-    b.textContent = "selftest " + st.passed + "/" + st.total + (st.passed === st.total ? " PASS" : " FAIL") + " · errors " + window.__errs.length + (window.__errs.length ? " (" + window.__errs[0] + ")" : "");
-    document.body.appendChild(b);
+    selfTestBanner = document.createElement("div");
+    selfTestBanner.style.cssText = "position:fixed;left:4px;top:4px;z-index:99;background:#111;color:#0f0;font:12px/1.3 monospace;padding:4px 6px;border-radius:4px";
+    document.body.appendChild(selfTestBanner);
+    runSelfTestOnce();
   }
 
   // 검증용: ?layoutcheck 로 열 때만 화면 너비와 가로 넘침 여부를 왼쪽 위에 띄운다 (평소에는 아무것도 안 함)
