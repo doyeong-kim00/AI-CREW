@@ -174,6 +174,28 @@ main{
 .setting-row .label span{font-size:13px; color:var(--muted); font-weight:500}
 .footnote{font-size:12px; color:var(--muted); text-align:center; margin:28px 0 0; font-weight:600}
 
+/* ---------- 예외 화면 ---------- */
+.ex-summary{display:grid; grid-template-columns:1.2fr 1fr; gap:8px}
+.ex-big{font-size:30px; font-weight:900; color:var(--yellow); letter-spacing:-.5px; line-height:1.1}
+.ex-big.dark{color:var(--ink)}
+.ex-sub{font-size:12px; font-weight:700; color:var(--panel-muted)}
+.ex-sub.dark{color:var(--muted)}
+.ex-hint{margin:10px 2px 14px}
+.ex-list{display:grid; gap:10px}
+.ex-card{background:var(--surface); border:var(--border); border-radius:var(--radius); padding:12px 14px 12px 22px; position:relative; overflow:hidden; display:grid; gap:6px}
+.ex-card::before{content:""; position:absolute; left:0; top:0; bottom:0; width:8px; background:var(--ink)}
+.ex-card.hold::before{background:var(--hazard)}
+.ex-card.keep::before{background:var(--line-soft)}
+.ex-top{display:flex; flex-wrap:wrap; align-items:center; gap:6px}
+.ex-reason{font-size:13px; font-weight:900; padding:2px 8px; border-radius:4px; background:var(--ink); color:var(--yellow)}
+.ex-action{font-size:12px; font-weight:800; padding:2px 8px; border-radius:4px; border:1.5px solid var(--ink)}
+.ex-card.keep .ex-action{border-color:var(--line-soft); color:var(--muted)}
+.ex-id{font-size:16px; font-weight:900; letter-spacing:-.2px}
+.ex-id small{font-size:12.5px; font-weight:700; color:var(--muted); margin-left:6px}
+.ex-detail{font-size:13.5px; color:var(--ink-2); font-weight:500}
+.ex-src{font-size:12px; color:var(--muted); font-weight:700}
+@media (min-width:960px){ .ex-list{grid-template-columns:repeat(2,minmax(0,1fr))} .ex-summary{grid-template-columns:repeat(4,minmax(0,1fr))} }
+
 /* ---------- 자가 검산 ---------- */
 .selftest{display:grid; gap:8px}
 .st-summary{min-height:auto}
@@ -339,14 +361,13 @@ main{
         <h1 id="h-exceptions">예외</h1>
         <p>계산에 넣지 못한 행을 버리지 않고 모읍니다</p>
       </div>
-      <div class="page-meta"><span class="tag-soon">준비 중 · 조각 3</span></div>
     </div>
-    <div class="card list" aria-hidden="true">
-      <div class="list-item row"><span class="sk sk-dot"></span><div class="grow"><span class="sk sk-line w40"></span><span class="sk sk-line w70"></span></div></div>
-      <div class="list-item row"><span class="sk sk-dot"></span><div class="grow"><span class="sk sk-line w50"></span><span class="sk sk-line w60"></span></div></div>
-      <div class="list-item row"><span class="sk sk-dot"></span><div class="grow"><span class="sk sk-line w30"></span><span class="sk sk-line w70"></span></div></div>
+    <div class="ex-summary">
+      <div class="kpi dark"><span class="kpi-label">예외</span><span class="ex-big num" id="ex-count">—</span><span class="ex-sub" id="ex-sub"></span></div>
+      <div class="kpi light"><span class="kpi-label">원본 행</span><span class="ex-big dark num" id="ex-rows">—</span><span class="ex-sub dark" id="ex-rows-sub"></span></div>
     </div>
-    <p class="sr-only">예외 목록은 조각 3에서 채워집니다.</p>
+    <p class="hint ex-hint">처리하지 못한 행을 버리지 않고 사유와 함께 보여줍니다. 단위는 추측해서 바꾸지 않습니다.</p>
+    <div class="ex-list" id="ex-list"></div>
   </section>
 
   <!-- 설정 (spec R4.4 · 조각 2·6) -->
@@ -703,6 +724,27 @@ var SelfTest = (function(C){
         ck("경과 개월", t.elapsed, 7, 0); ck("확인 필요 사유", t.flags.join(","), "1,3,4");
         ck("경과 6개월 → ④ 해당", C.project(h("2026-04"), idx).flags.indexOf(4) >= 0, true);
         ck("경과 5개월 → ④ 아님", C.project(h("2026-03"), idx).flags.indexOf(4) >= 0, false);
+    }},
+    { id: "DATA", title: "가상 데이터 · 예외 판정 (spec R0, R4.3)", run: function(ck){
+        var D = DemoData.get();
+        var reasons = {}; D.exceptions.forEach(function(e){ reasons[e.reason + "|" + e.pj] = e.action; });
+        ck("예외 건수", D.exceptions.length, 5, 0);
+        ck("중복 행 PJ-3011 → 첫 행만 사용", reasons["중복 행|PJ-3011"], "첫 행만 사용");
+        ck("견적 없음 PJ-3901 → 제외", reasons["견적 없음|PJ-3901"], "제외");
+        ck("실적 없음 PJ-3902 → 제외", reasons["실적 없음|PJ-3902"], "제외");
+        ck("단위 불일치 PJ-3021 → 계산 보류", reasons["단위 불일치|PJ-3021"], "계산 보류");
+        ck("빈 값 PJ-3034 → 계산 보류", reasons["빈 값|PJ-3034"], "계산 보류");
+        ck("중복 행 프로젝트는 정상 계산", D.projects.some(function(t){ return t.id === "PJ-3011"; }), true);
+        ck("계산 보류 2건", D.held.map(function(h){ return h.id; }).join(","), "PJ-3021,PJ-3034");
+        ck("계산된 프로젝트 70개", D.projects.length, 70, 0);
+        ck("검산 불일치 0건", D.projects.filter(function(t){ return !t.checkOk; }).length, 0, 0);
+        ck("기준 시점 = 마지막 생산 완료월", D.lastMonth, "2026-06");
+        var unknown = D.kinds.filter(function(k){ var a = C.kindAlert(D.projects, k, D.lastMonth); return a.unit === "unknown" || a.margin === "unknown"; });
+        ck("기종 6개 모두 판단 가능", unknown.join(","), "");
+        var gaps = D.kinds.some(function(k){ return C.kindMonthly(D.projects, k, D.firstMonth, D.lastMonth).some(function(r){ return r.unitPost === null; }); });
+        ck("빈 달이 있는 기종 존재(빈칸 시연)", gaps, true);
+        ck("확인 필요 ③ 시연 건 존재", D.projects.some(function(t){ return t.flags.indexOf(3) >= 0; }), true);
+        ck("기종 주의 시연: HS-SV-2.0kW ①", C.kindAlert(D.projects, "HS-SV-2.0kW", D.lastMonth).unit, "alert");
     }}
   ];
 
@@ -722,6 +764,206 @@ var SelfTest = (function(C){
     });
   }
   return { run: run };
+})(CostCalc);
+</script>
+
+<script>
+/* =========================================================
+   가상 데이터 + 예외 판정 (조각 3 · spec R0, R4.3)
+   - 고정 시드 → 열 때마다 같은 숫자. 모든 숫자는 시연용 가상 값.
+   - 원본 행(견적·실적·지표) → buildData()가 검사해 계산용 프로젝트 / 계산 보류 / 예외로 나눈다.
+   ========================================================= */
+var DemoData = (function(C){
+  "use strict";
+  var FIRST = "2025-07", LAST = "2026-06";
+
+  function rng(seed){                 // mulberry32
+    return function(){
+      seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+      var t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+  function rnd(v, d){ var f = Math.pow(10, d || 0); return Math.round(v * f) / f; }
+
+  var KINDS = [
+    { kind: "HM-4P-5.5kW",  cu: 6.0,  core: 22,  cast: 28,  etc: 180000, proc: 420000,  qty: [10, 40] },
+    { kind: "HM-4P-15kW",   cu: 14,   core: 48,  cast: 60,  etc: 310000, proc: 780000,  qty: [6, 24] },
+    { kind: "HM-4P-37kW",   cu: 30,   core: 105, cast: 140, etc: 620000, proc: 1500000, qty: [3, 12] },
+    { kind: "HS-SV-2.0kW",  cu: 3.2,  core: 9,   cast: 6,   etc: 260000, proc: 350000,  qty: [15, 50] },
+    { kind: "HX-EXD-7.5kW", cu: 6.1,  core: 30,  cast: 52,  etc: 92000,  proc: 260000,  qty: [8, 30] },
+    { kind: "HX-EXD-15kW",  cu: 12,   core: 55,  cast: 95,  etc: 160000, proc: 450000,  qty: [4, 16] }
+  ];
+  var MATS = [
+    { code: "CU",   name: "동선",      type: "split", index: "동선", key: "cu" },
+    { code: "CORE", name: "코어",      type: "split", index: "코어", key: "core" },
+    { code: "CAST", name: "주물",      type: "split", index: "주물", key: "cast" },
+    { code: "ETC",  name: "기타 부품", type: "total", key: "etc" },
+    { code: "PROC", name: "가공비",    type: "total", key: "proc" }
+  ];
+  var CUSTOMERS = ["가람펌프", "누리공조", "다온기계", "라온플랜트", "마루환경", "바른냉동", "새솔팬", "아름송풍"];
+
+  /* ---- 원본 행 만들기 ---- */
+  function generate(){
+    var R = rng(20261112);
+    function between(a, b){ return a + (b - a) * R(); }
+    function intIn(a, b){ return Math.floor(between(a, b + 1)); }
+
+    // 지표 (원/kg, 가상): 동선은 꾸준히 상승, 코어·주물은 완만
+    var index = { "동선": {}, "코어": {}, "주물": {} };
+    var start = C.addMonths(FIRST, -10), span = C.monthDiff(start, LAST);
+    for (var i = 0; i <= span; i++){
+      var m = C.addMonths(start, i), k = i / span;
+      index["동선"][m] = rnd(13000 + 4800 * k + between(-300, 300), -1);
+      index["코어"][m] = rnd(1180 + 110 * k + between(-15, 15));
+      index["주물"][m] = rnd(1540 + 120 * k + between(-20, 20));
+    }
+
+    // 자리: 기종 × 12개월. 2025년 하반기에서 6자리를 비우고, 6자리를 아무 달에 더함 → 72개, 빈 달·2건 달 생김
+    var slots = [];
+    KINDS.forEach(function(kd){ for (var j = 0; j < 12; j++) slots.push({ kd: kd, month: C.addMonths(FIRST, j) }); });
+    for (var d = 0; d < 6; d++){
+      var cand = slots.filter(function(s){ return s.month < "2026-01"; });
+      slots.splice(slots.indexOf(cand[Math.floor(R() * cand.length)]), 1);
+    }
+    for (var a = 0; a < 6; a++) slots.push({ kd: KINDS[Math.floor(R() * KINDS.length)], month: C.addMonths(FIRST, intIn(0, 11)) });
+    slots.sort(function(x, y){ return x.month < y.month ? -1 : x.month > y.month ? 1 : KINDS.indexOf(x.kd) - KINDS.indexOf(y.kd); });
+
+    var quotes = [], actuals = [];
+    slots.forEach(function(s, n){
+      var id = "PJ-" + (3001 + n), kd = s.kd, done = s.month;
+      var lead = R() < 0.1 ? intIn(6, 8) : intIn(1, 5);
+      var base = C.addMonths(done, -lead);
+      var qty = intIn(kd.qty[0], kd.qty[1]);
+      var worse = kd.kind === "HS-SV-2.0kW" && done >= "2026-04";      // 최근 3개월 나빠지는 기종 (시연 이야기)
+      var scrap = worse ? 0.07 : 0, procUp = worse ? 0.10 : 0;
+      var urgent = kd.kind === "HM-4P-37kW" && done === "2026-03";   // 긴급 구매로 동선을 시세보다 비싸게 산 건 (확인 필요 ③ 시연)
+      var head = { pj: id, ver: R() < 0.2 ? "v2" : "v1", quoteDate: base + "-" + String(intIn(5, 25)).padStart(2, "0"),
+                   baseMonth: base, kind: kd.kind, customer: CUSTOMERS[Math.floor(R() * CUSTOMERS.length)], qty: qty };
+      var preTotal = 0, rows = [];
+      MATS.forEach(function(mt){
+        if (mt.type === "split"){
+          var markup = between(1.04, 1.08);
+          var sq = rnd(kd[mt.key] * qty * between(0.97, 1.03), 1);
+          var sp = rnd(index[mt.index][base] * markup);
+          var aq = rnd(sq * (1 + between(-0.02, 0.05) + scrap), 1);
+          var lagged = 0.6 * index[mt.index][done] + 0.4 * index[mt.index][C.addMonths(done, -2)];   // 재고 때문에 늦게 따라감
+          var ap = rnd(lagged * markup * between(0.98, 1.03) * (urgent && mt.code === "CU" ? 1.12 : 1));
+          preTotal += sq * sp;
+          rows.push({ q: { code: mt.code, name: mt.name, unit: "kg", sq: sq, sp: sp, index: mt.index },
+                      a: { code: mt.code, unit: "kg", aq: aq, ap: ap } });
+        } else {
+          var pre = rnd(kd[mt.key] * qty * between(0.95, 1.05), -3);
+          var up = mt.code === "PROC" ? between(-0.02, 0.08) + procUp : between(-0.03, 0.06);
+          var post = rnd(pre * (1 + up), -3);
+          preTotal += pre;
+          rows.push({ q: { code: mt.code, name: mt.name, unit: "식", amount: pre },
+                      a: { code: mt.code, unit: "식", amount: post } });
+        }
+      });
+      head.price = rnd(preTotal * between(1.12, 1.24), -4);
+      rows.forEach(function(r){
+        quotes.push(Object.assign({}, head, r.q));
+        actuals.push(Object.assign({ pj: id, doneMonth: done }, r.a));
+      });
+    });
+
+    // ---- 일부러 넣는 오류 5건 (정답.md 예외 표) ----
+    var ERR = { dup: "PJ-3011", unit: "PJ-3021", empty: "PJ-3034", noQuote: "PJ-3901", noActual: "PJ-3902" };
+    // 1 중복 행: 실적 한 줄을 그대로 한 번 더
+    var dupRow = actuals.filter(function(r){ return r.pj === ERR.dup && r.code === "CORE"; })[0];
+    actuals.splice(actuals.indexOf(dupRow) + 1, 0, Object.assign({}, dupRow));
+    // 4 단위 불일치: 실적 동선을 g로
+    actuals.forEach(function(r){ if (r.pj === ERR.unit && r.code === "CU"){ r.unit = "g"; r.aq = rnd(r.aq * 1000); } });
+    // 5 빈 단가: 견적 코어 단가 비움
+    quotes.forEach(function(r){ if (r.pj === ERR.empty && r.code === "CORE") r.sp = null; });
+    // 2 견적 없음: 실적에만 있는 프로젝트
+    actuals.filter(function(r){ return r.pj === "PJ-3045"; }).forEach(function(r){
+      actuals.push(Object.assign({}, r, { pj: ERR.noQuote }));
+    });
+    // 3 실적 없음: 견적에만 있는 프로젝트
+    quotes.filter(function(r){ return r.pj === "PJ-3046"; }).forEach(function(r){
+      quotes.push(Object.assign({}, r, { pj: ERR.noActual }));
+    });
+
+    return { quotes: quotes, actuals: actuals, index: index, errors: ERR };
+  }
+
+  /* ---- 검사해서 나누기 (spec R4.3) ---- */
+  function bad(v){ return typeof v !== "number" || !isFinite(v) || v <= 0; }
+  function key(r){ return r.pj + "|" + r.code; }
+
+  function buildData(raw, settings){
+    var exceptions = [], held = [], projects = [];
+    function ex(reason, action, pj, code, source, detail){ exceptions.push({ reason: reason, action: action, pj: pj, code: code || "", source: source, detail: detail }); }
+
+    // 1) 중복 행: 같은 출처에서 프로젝트·재료가 같은 두 번째 행부터 예외, 첫 행만 사용
+    function dedupe(rows, source){
+      var seen = {}, out = [];
+      rows.forEach(function(r){
+        var k = key(r);
+        if (seen[k]){ ex("중복 행", "첫 행만 사용", r.pj, r.code, source, "같은 " + source + " 행이 한 번 더 있음 — 두 번째 행은 계산에 넣지 않음"); return; }
+        seen[k] = true; out.push(r);
+      });
+      return out;
+    }
+    var quotes = dedupe(raw.quotes, "견적"), actuals = dedupe(raw.actuals, "실적");
+
+    function group(rows){ var g = {}; rows.forEach(function(r){ (g[r.pj] = g[r.pj] || []).push(r); }); return g; }
+    var gq = group(quotes), ga = group(actuals);
+
+    // 2·3) 견적 없음 / 실적 없음 → 제외
+    Object.keys(ga).forEach(function(pj){ if (!gq[pj]) ex("견적 없음", "제외", pj, "", "실적", "실적 " + ga[pj].length + "행은 있는데 견적이 없음"); });
+    Object.keys(gq).forEach(function(pj){ if (!ga[pj]) ex("실적 없음", "제외", pj, "", "견적", "견적 " + gq[pj].length + "행은 있는데 실적이 없음"); });
+
+    Object.keys(gq).filter(function(pj){ return ga[pj]; }).sort().forEach(function(pj){
+      var qs = gq[pj], h = qs[0], problems = [], mats = [], doneMonth = ga[pj][0].doneMonth;
+      if (bad(h.qty)) problems.push(["빈 값", "", "견적", "생산수량이 비었거나 0 이하"]);
+      if (bad(h.price)) problems.push(["빈 값", "", "견적", "판매금액이 비었거나 0 이하"]);
+      qs.forEach(function(q){
+        var a = ga[pj].filter(function(r){ return r.code === q.code; })[0];
+        if (!a){ problems.push(["빈 값", q.code, "실적", q.name + " 실적 행이 없음"]); return; }
+        if (q.unit !== a.unit){ problems.push(["단위 불일치", q.code, "견적·실적", q.name + ": 견적 " + q.unit + " · 실적 " + a.unit + " (단위를 추측해 바꾸지 않음)"]); return; }
+        if (q.amount !== undefined){
+          if (bad(q.amount) || bad(a.amount)){ problems.push(["빈 값", q.code, "견적·실적", q.name + " 금액이 비었거나 0 이하"]); return; }
+          mats.push({ code: q.code, name: q.name, type: "total", pre: q.amount, post: a.amount });
+        } else {
+          var miss = [];
+          if (bad(q.sq)) miss.push("견적 사용량"); if (bad(q.sp)) miss.push("견적 단가");
+          if (bad(a.aq)) miss.push("실제 사용량"); if (bad(a.ap)) miss.push("실제 단가");
+          if (miss.length){ problems.push(["빈 값", q.code, "견적·실적", q.name + " " + miss.join(", ") + " — 비었거나 0 이하"]); return; }
+          mats.push({ code: q.code, name: q.name, type: "split", sq: q.sq, sp: q.sp, aq: a.aq, ap: a.ap, index: q.index });
+        }
+      });
+      var info = { id: pj, kind: h.kind, customer: h.customer, version: h.ver, quoteDate: h.quoteDate, qty: h.qty, price: h.price,
+                   baseMonth: h.baseMonth, doneMonth: doneMonth, materials: mats };
+      if (problems.length){
+        // 4·5) 단위 불일치 / 빈 값 → 계산 보류 (합계·기종 집계·확인 필요에서 제외)
+        problems.forEach(function(p){ ex(p[0], "계산 보류", pj, p[1], p[2], p[3]); });
+        held.push({ id: pj, kind: h.kind, doneMonth: doneMonth, reasons: problems.map(function(p){ return p[0]; }) });
+      } else {
+        projects.push(info);
+      }
+    });
+
+    var computed = projects.map(function(p){
+      var t = C.project(p, raw.index, settings);
+      t.customer = p.customer; t.version = p.version; t.quoteDate = p.quoteDate;
+      if (!t.checkOk) ex("검산 불일치", "합계에서 제외", p.id, "", "계산", "분해 합계와 총차이가 " + C.won(t.check, true) + "원 다름");
+      return t;
+    });
+    var lastMonth = computed.reduce(function(m, t){ return t.doneMonth > m ? t.doneMonth : m; }, "0000-00");
+    var ORDER = ["중복 행", "견적 없음", "실적 없음", "단위 불일치", "빈 값", "검산 불일치"];
+    exceptions.sort(function(x, y){ return ORDER.indexOf(x.reason) - ORDER.indexOf(y.reason) || (x.pj < y.pj ? -1 : 1); });
+
+    return { projects: computed, held: held, exceptions: exceptions, index: raw.index, lastMonth: lastMonth,
+             kinds: KINDS.map(function(k){ return k.kind; }), firstMonth: FIRST, rawCount: { quotes: raw.quotes.length, actuals: raw.actuals.length } };
+  }
+
+  var cache = null;
+  function get(settings){ if (!cache) cache = buildData(generate(), settings); return cache; }
+  return { generate: generate, buildData: buildData, get: get };
 })(CostCalc);
 </script>
 
@@ -763,11 +1005,30 @@ var SelfTest = (function(C){
     document.getElementById("st-list").innerHTML = html;
     document.getElementById("st-score").textContent = passed + " / " + total;
     document.getElementById("st-note").textContent = allOk
-      ? "정답.md 예시 A~H의 모든 항목이 정답과 일치합니다 (금액 1원·비율 0.01%p 미만)"
+      ? "정답.md 예시 A~H와 가상 데이터 점검이 모두 정답과 일치합니다 (금액 1원·비율 0.01%p 미만)"
       : "정답과 다른 항목이 있습니다. 다음 조각으로 넘어가지 않습니다";
     document.querySelector(".st-summary").classList.toggle("fail", !allOk);
     return { total: total, passed: passed };
   }
+  /* ---- 예외 화면 (spec R4.3) ---- */
+  function renderExceptions(D){
+    var ex = D.exceptions, byAction = {};
+    ex.forEach(function(e){ byAction[e.action] = (byAction[e.action] || 0) + 1; });
+    document.getElementById("ex-count").textContent = ex.length + "건";
+    document.getElementById("ex-sub").textContent = Object.keys(byAction).map(function(k){ return k + " " + byAction[k]; }).join(" · ");
+    document.getElementById("ex-rows").textContent = (D.rawCount.quotes + D.rawCount.actuals).toLocaleString("ko-KR") + "행";
+    document.getElementById("ex-rows-sub").textContent = "견적 " + D.rawCount.quotes + " · 실적 " + D.rawCount.actuals + " · 계산 " + D.projects.length + "개 프로젝트";
+    var cls = { "계산 보류": "hold", "첫 행만 사용": "keep" };
+    document.getElementById("ex-list").innerHTML = ex.length ? ex.map(function(e){
+      return '<article class="ex-card ' + (cls[e.action] || "") + '">' +
+        '<div class="ex-top"><span class="ex-reason">' + esc(e.reason) + '</span><span class="ex-action">' + esc(e.action) + '</span></div>' +
+        '<div class="ex-id">' + esc(e.pj) + (e.code ? "<small>" + esc(e.code) + "</small>" : "") + '</div>' +
+        '<div class="ex-detail">' + esc(e.detail) + '</div>' +
+        '<div class="ex-src">출처 · ' + esc(e.source) + '</div></article>';
+    }).join("") : '<div class="card">예외가 없습니다.</div>';
+  }
+  renderExceptions(DemoData.get());
+
   var st = renderSelfTest();
   // 검증용: ?selftest 로 열면 결과를 왼쪽 위에 띄운다 (평소에는 아무것도 안 함)
   if (location.search.indexOf("selftest") >= 0){

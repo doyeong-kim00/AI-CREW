@@ -13,7 +13,7 @@
 | 1 기획에서 코드로 | [intent.md](intent.md), [CLAUDE.md](CLAUDE.md) | 완료 |
 | 2 spec 고정 | [docs/spec.md](docs/spec.md), [정답.md](정답.md) | 완료 (중간점검 1 반영) |
 | 3 Plan Mode | [docs/plan.md](docs/plan.md) | 승인 |
-| 4 한 조각씩 | [index.html](index.html) | 조각 2/8 완료 (뼈대 + 디자인 C, 계산 엔진 + 자가 검산 74/74) |
+| 4 한 조각씩 | [index.html](index.html) | 조각 3/8 완료 (뼈대 + 디자인 C, 계산 엔진, 가상 데이터·예외 — 자가 검산 89/89) |
 | 5 검증·시연 | [validation/](validation/), [ai-log/](ai-log/) | 조각마다 기록 중 |
 
 ## 실행
