@@ -284,6 +284,51 @@ main{
 .sheet-body{max-width:760px; margin:0 auto; padding:14px 16px calc(28px + env(safe-area-inset-bottom))}
 body.sheet-open{overflow:hidden}
 
+/* ---------- 기종별 원가 흐름 (조각 7) ---------- */
+.kd-meta{display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:0 0 12px}
+.kd-asof{font-size:12.5px; font-weight:700; color:var(--muted)}
+.kd-cards{display:grid; grid-template-columns:1fr; gap:10px}
+.kd{position:relative; background:var(--surface); border:var(--border); border-radius:var(--radius); overflow:hidden; display:grid}
+.kd.alert{padding-left:8px}
+.kd.alert::before{content:""; position:absolute; left:0; top:0; bottom:0; width:8px; background:var(--hazard)}
+.kd.sel{box-shadow:0 0 0 3px var(--yellow) inset}
+.kd-pick{display:grid; gap:6px; width:100%; text-align:left; padding:12px 14px 10px; border:0; background:none; font:inherit; color:inherit; cursor:pointer}
+.kd-pick:focus-visible{outline:3px solid #2457d6; outline-offset:-3px}
+.kd-top{display:flex; align-items:center; gap:8px; justify-content:space-between}
+.kd-top b{font-size:16px; font-weight:900; letter-spacing:-.2px}
+.kd-label{font-size:12px; font-weight:700; color:var(--muted)}
+.kd-num{font-size:24px; font-weight:900; letter-spacing:-.5px; line-height:1.15}
+.kd-chg{font-size:14px; font-weight:900}
+.kd-chg small{font-size:12px; font-weight:700; color:var(--muted)}
+.kd-chg.over{color:var(--over)} .kd-chg.under{color:var(--under)}
+.kd-spark{display:block; width:100%; height:44px}
+.kd-margin{font-size:13px; font-weight:700; color:var(--ink-2)}
+.kd-margin b.over{color:var(--over)} .kd-margin b.under{color:var(--under)}
+.kd-link{display:flex; align-items:center; justify-content:space-between; min-height:44px; padding:0 14px; border-top:1.5px solid var(--line-soft);
+  font-size:13.5px; font-weight:900; text-decoration:none; color:var(--ink); background:var(--surface-2)}
+.kd-link:hover{background:var(--yellow)}
+.kd-link:focus-visible{outline:3px solid #2457d6; outline-offset:-3px}
+.badge.unknown{background:var(--surface-2); color:var(--muted); border:1px dashed var(--muted)}
+.kd-big{margin-top:14px; background:var(--surface); border:var(--border); border-radius:var(--radius); padding:14px; display:grid; gap:10px}
+.kd-big h2{margin:0; font-size:17px; font-weight:900; letter-spacing:-.3px}
+.kd-legend{display:flex; flex-wrap:wrap; gap:12px; font-size:12.5px; font-weight:800; color:var(--ink-2)}
+.kd-legend i{display:inline-block; width:12px; height:12px; border-radius:2px; vertical-align:-1px; margin-right:4px}
+.kd-legend i.mat{background:var(--ink)} .kd-legend i.oth{background:#a9a79d} .kd-legend i.est{background:none; border-top:3px dashed var(--over); height:0; width:16px; vertical-align:3px}
+.kd-chart{display:grid; grid-template-columns:repeat(12,minmax(0,1fr)); gap:3px; align-items:end; height:190px; border-bottom:2px solid var(--ink); position:relative}
+.kd-col{position:relative; height:100%; display:flex; flex-direction:column; justify-content:flex-end}
+.kd-col .seg-oth{background:#a9a79d} .kd-col .seg-mat{background:var(--ink)}
+.kd-col.recent .seg-mat{background:#3a3833} .kd-col.recent{background:linear-gradient(to top, rgba(255,204,0,.18), rgba(255,204,0,.18))}
+.kd-col .est{position:absolute; left:-2px; right:-2px; border-top:3px dashed var(--over)}
+.kd-col .empty-m{position:absolute; bottom:4px; left:0; right:0; text-align:center; font-size:10px; font-weight:800; color:var(--muted)}
+.kd-months{display:grid; grid-template-columns:repeat(12,minmax(0,1fr)); gap:3px; font-size:11.5px; font-weight:800; color:var(--muted); text-align:center}
+.kd-table{width:100%; border-collapse:collapse; font-size:13px}
+.kd-table th, .kd-table td{padding:6px 8px; border-top:1px solid var(--line-soft); text-align:right; white-space:nowrap}
+.kd-table th:first-child, .kd-table td:first-child{text-align:left}
+.kd-table th{font-size:12px; color:var(--muted)}
+.kd-big details summary{cursor:pointer; font-size:13.5px; font-weight:900; min-height:36px; display:flex; align-items:center}
+@media (min-width:600px){ .kd-cards{grid-template-columns:repeat(2,minmax(0,1fr))} }
+@media (min-width:960px){ .kd-cards{grid-template-columns:repeat(3,minmax(0,1fr))} .kd-chart{height:240px} }
+
 /* ---------- 설정 · 메모 (조각 6) ---------- */
 .set-form, .set-data{display:grid; gap:12px; margin-top:12px}
 .set-field{display:grid; gap:4px}
@@ -479,14 +524,11 @@ body.sheet-open{overflow:hidden}
         <h1 id="h-kinds">기종별 원가 흐름</h1>
         <p>한 대 만드는 원가가 달마다 어떻게 변하는지</p>
       </div>
-      <div class="page-meta"><span class="tag-soon">준비 중 · 조각 7</span></div>
     </div>
-    <div class="cards-kind" aria-hidden="true">
-      <div class="card stack hazard-left"><div class="row"><div class="grow"><span class="sk sk-line w60"></span><span class="sk sk-line w40"></span></div></div><span class="sk sk-line lg w50"></span><span class="sk sk-chart"></span></div>
-      <div class="card stack"><div class="row"><div class="grow"><span class="sk sk-line w50"></span><span class="sk sk-line w30"></span></div></div><span class="sk sk-line lg w40"></span><span class="sk sk-chart"></span></div>
-      <div class="card stack"><div class="row"><div class="grow"><span class="sk sk-line w70"></span><span class="sk sk-line w40"></span></div></div><span class="sk sk-line lg w60"></span><span class="sk sk-chart"></span></div>
-    </div>
-    <p class="sr-only">기종 카드는 조각 7에서 채워집니다.</p>
+    <div class="kd-meta"><span class="owner-chip" id="owner-chip">운영 담당자 · 미지정</span><span class="kd-asof num" id="kd-asof"></span></div>
+    <div class="kd-cards" id="kd-cards"></div>
+    <section class="kd-big" id="kd-big" aria-live="polite"></section>
+    <p class="hint kd-foot">이익률은 견적 판매금액 기준입니다(판매가가 바뀌지 않았다는 가정). 기종 주의 ① 최근 3개월 개당 원가가 직전 3개월보다 기준 이상 오름 · ② 최근 3개월 실제 이익률이 견적보다 기준 이상 낮음. 기준값은 설정에서 바꿉니다.</p>
   </section>
 
   <!-- 화면 2·3 · 프로젝트 목록과 상세 (spec R2·R3 · 조각 4·5) -->
@@ -597,7 +639,7 @@ body.sheet-open{overflow:hidden}
       <button type="button" class="btn danger" id="set-clear">메모·확정 모두 지우기</button>
     </div>
 
-    <div class="section-label"><span>자가 검산 (정답.md 예시 A~L + 가상 데이터 + 화면 점검)</span></div>
+    <div class="section-label"><span>자가 검산 (정답.md 예시 A~M + 가상 데이터 + 화면 점검)</span></div>
     <div class="selftest" id="selftest" aria-live="polite">
       <div class="kpi dark st-summary"><span class="kpi-label">계산 엔진 검산</span><span class="st-score num" id="st-score">—</span><span class="st-note" id="st-note">검산 중…</span></div>
       <div class="card list" id="st-list"></div>
@@ -1622,6 +1664,59 @@ var Store = (function(C){
 </script>
 
 <script>
+/* =========================================================
+   기종 모델 (조각 7 · spec R1) — 기종별 월간 개당 원가(재료비/기타), 기종 주의, 정렬
+   ========================================================= */
+var KindModel = (function(C){
+  "use strict";
+  function monthly(D, kind){
+    var rows = [], mine = D.projects.filter(function(t){ return t.kind === kind && t.checkOk; });
+    for (var m = D.firstMonth; m <= D.lastMonth; m = C.addMonths(m, 1)){
+      var a = { n: 0, qty: 0, pre: 0, post: 0, mat: 0, other: 0 };
+      mine.forEach(function(t){
+        if (t.doneMonth !== m) return;
+        a.n++; a.qty += t.qty; a.pre += t.pre; a.post += t.post;
+        t.materials.forEach(function(x){ if (x.type === "split") a.mat += x.post; else a.other += x.post; });
+      });
+      rows.push({ month: m, n: a.n,
+        unitPre: a.qty > 0 ? a.pre / a.qty : null, unitPost: a.qty > 0 ? a.post / a.qty : null,
+        unitMat: a.qty > 0 ? a.mat / a.qty : null, unitOther: a.qty > 0 ? a.other / a.qty : null });
+    }
+    return rows;
+  }
+  // 값이 있는 달끼리 이어지는 구간 (빈 달에서 선이 끊김, R1.4)
+  function segments(rows, key){
+    var segs = [], cur = null;
+    rows.forEach(function(r, i){
+      if (r[key] === null){ cur = null; return; }
+      if (!cur){ cur = []; segs.push(cur); }
+      cur.push(i);
+    });
+    return segs;
+  }
+  function build(D, settings){
+    var RANK = { alert: 0, unknown: 1, ok: 2 };
+    var list = D.kinds.map(function(kind){
+      var a = C.kindAlert(D.projects, kind, D.lastMonth, settings), mo = monthly(D, kind);
+      var mine = D.projects.filter(function(t){ return t.kind === kind; });
+      var reasons = [];
+      if (a.unit === "alert") reasons.push(1);
+      if (a.margin === "alert") reasons.push(2);
+      var status = reasons.length ? "alert" : (a.unit === "unknown" || a.margin === "unknown") ? "unknown" : "ok";
+      return { kind: kind, a: a, monthly: mo, count: mine.length, flagged: mine.filter(function(t){ return t.flags.length; }).length,
+               gaps: mo.filter(function(r){ return r.n === 0; }).length, status: status, reasons: reasons };
+    });
+    list.sort(function(x, y){
+      var cx = x.a.unitChange === null ? -Infinity : x.a.unitChange, cy = y.a.unitChange === null ? -Infinity : y.a.unitChange;
+      return RANK[x.status] - RANK[y.status] || cy - cx;
+    });
+    return list;
+  }
+  return { build: build, monthly: monthly, segments: segments };
+})(CostCalc);
+</script>
+
+<script>
 (function(){
   "use strict";
   var VIEWS = ["kinds","projects","exceptions","settings"];
@@ -1714,6 +1809,52 @@ var Store = (function(C){
     return r;
   }
 
+  // 기종 화면 점검 (정답 M, 조각 7)
+  function kindChecks(){
+    var r = { id: "UI-M", title: "화면 그리기 점검 · 기종별 원가 흐름 (정답 M)", total: 0, passed: 0, fails: [] };
+    function ck(label, got, want){ r.total++; if (got === want) r.passed++; else r.fails.push(label + ": 결과 " + got + " / 정답 " + want); }
+    try {
+      var list = KindModel.build(DemoData.get(), CostCalc.DEFAULTS);
+      ck("카드 순서", list.map(function(k){ return k.kind; }).join(","), "HS-SV-2.0kW,HM-4P-15kW,HM-4P-5.5kW,HX-EXD-7.5kW,HX-EXD-15kW,HM-4P-37kW");
+      ck("변화·이익률 차", list.map(function(k){ return C.pct(k.a.unitChange, 1, true) + "/" + (k.a.marginGap * 100).toFixed(1); }).join(" "),
+         "+10.0%/-7.4 +1.5%/-3.1 +0.3%/-3.1 −0.3%/-3.2 −1.3%/-3.0 −2.9%/-2.5");
+      ck("상태", list.map(function(k){ return k.status + (k.reasons.length ? k.reasons.join("") : ""); }).join(","), "alert12,ok,ok,ok,ok,ok");
+      ck("월별 건수", list.map(function(k){ return k.monthly.map(function(m){ return m.n; }).join(""); }).join(","),
+         "111011111111,101101111111,110121111111,101111111122,111111111121,011011021112");
+      ck("빈 달", list.map(function(k){ return k.gaps; }).join(","), "1,2,1,1,0,3");
+      ck("프로젝트 합 70", list.reduce(function(s, k){ return s + k.count; }, 0), 70);
+      ck("HS-SV 추이선 구간 2개", KindModel.segments(list[0].monthly, "unitPost").length, 2);
+      var stackOk = list.every(function(k){ return k.monthly.every(function(m){ return m.unitPost === null || Math.abs(m.unitMat + m.unitOther - m.unitPost) < 1; }); });
+      ck("재료비 + 기타 = 개당 원가", stackOk, true);
+      // 그려진 화면
+      var cards = document.querySelectorAll("#kd-cards .kd");
+      ck("카드 6개", cards.length, 6);
+      ck("첫 카드 주의 표시", cards[0] && cards[0].classList.contains("alert") && cards[0].querySelector(".badge").textContent, "기종 주의 ①②");
+      ck("첫 카드 링크", cards[0] && cards[0].querySelector(".kd-link").getAttribute("href"), "#projects?kind=HS-SV-2.0kW");
+      ck("첫 카드 변화 글자", cards[0] && cards[0].querySelector('[data-k="chg"]').textContent, "+10.0% 직전 3개월 대비");
+      ck("큰 차트 12칸", document.querySelectorAll("#kd-big .kd-col").length, 12);
+      ck("큰 차트 빈 달 1칸(HS-SV)", document.querySelectorAll("#kd-big .kd-col .empty-m").length, 1);
+      ck("운영 담당자 표시", /^운영 담당자 · /.test(document.getElementById("owner-chip").textContent), true);
+      // 조각 7 점검: 설정의 기종 기준값을 따르는지
+      var k12 = KindModel.build(DemoData.get({ kindUnitUp: 0.12 }), Object.assign({}, CostCalc.DEFAULTS, { kindUnitUp: 0.12 }));
+      ck("기종 기준 12% → HS-SV 주의 ②만, 여전히 맨 앞", k12[0].kind + " " + k12[0].status + k12[0].reasons.join(""), "HS-SV-2.0kW alert2");
+      var k20 = KindModel.build(DemoData.get(), Object.assign({}, CostCalc.DEFAULTS, { kindUnitUp: 0.2, kindMarginDrop: 0.2 }));
+      ck("기준 20%·20%p → 주의 기종 없음", k20.filter(function(k){ return k.status === "alert"; }).length, 0);
+      // M-2: 주의 기종이 상승률 1위가 아닐 때도 먼저 오는지
+      function tp(id, kind, month, pre, post, price){
+        return CostCalc.project({ id: id, kind: kind, qty: 1, price: price, baseMonth: month, doneMonth: month,
+          materials: [{ code: "ALL", name: "총액", type: "total", pre: pre, post: post }] });
+      }
+      var Dm = { kinds: ["A", "B"], firstMonth: "2025-07", lastMonth: "2026-06", projects: [
+        tp("a1", "A", "2026-02", 100, 100, 200), tp("a2", "A", "2026-05", 104, 104, 200),
+        tp("b1", "B", "2026-02", 100, 100, 200), tp("b2", "B", "2026-05", 90, 101, 150) ] };
+      var m2 = KindModel.build(Dm, CostCalc.DEFAULTS);
+      ck("M-2 순서 (주의 먼저)", m2.map(function(k){ return k.kind + ":" + k.status + k.reasons.join("") + ":" + C.pct(k.a.unitChange, 1, true); }).join(" "),
+         "B:alert2:+1.0% A:ok:+4.0%");
+    } catch (e) { r.total++; r.fails.push("실행 오류: " + e.message); }
+    return r;
+  }
+
   // 설정·메모 화면 점검 (정답 L, 조각 6) — 실제 저장소 대신 가짜 저장소로 바꿔 그려 보고 되돌린다
   function settingsChecks(){
     var r = { id: "UI-L", title: "화면 그리기 점검 · 설정·메모·확정 (정답 L)", total: 0, passed: 0, fails: [] };
@@ -1762,7 +1903,7 @@ var Store = (function(C){
   }
 
   function renderSelfTest(){
-    var results = SelfTest.run().concat([uiChecks(), detailChecks(), settingsChecks()]), total = 0, passed = 0, html = "";
+    var results = SelfTest.run().concat([uiChecks(), detailChecks(), kindChecks(), settingsChecks()]), total = 0, passed = 0, html = "";
     results.forEach(function(r){
       total += r.total; passed += r.passed;
       var ok = r.fails.length === 0;
@@ -1775,7 +1916,7 @@ var Store = (function(C){
     document.getElementById("st-list").innerHTML = html;
     document.getElementById("st-score").textContent = passed + " / " + total;
     document.getElementById("st-note").textContent = allOk
-      ? "정답.md 예시 A~L, 가상 데이터 점검, 화면 점검이 모두 정답과 일치합니다 (금액 1원·비율 0.01%p 미만)"
+      ? "정답.md 예시 A~M, 가상 데이터 점검, 화면 점검이 모두 정답과 일치합니다 (금액 1원·비율 0.01%p 미만)"
       : "정답과 다른 항목이 있습니다. 다음 조각으로 넘어가지 않습니다";
     document.querySelector(".st-summary").classList.toggle("fail", !allOk);
     return { total: total, passed: passed };
@@ -2053,6 +2194,85 @@ var Store = (function(C){
     if (!window.confirm("모든 메모와 확정 기록을 지울까요? 되돌릴 수 없습니다.")) return;
     STORE.clearNotes(); refreshAll(); setStatus("메모·확정 기록을 지웠습니다");
   });
+  /* ---- 기종별 원가 흐름 (조각 7 · spec R1) ---- */
+  var selectedKind = null, KINDS = [];
+  function sparkline(rows){
+    var vals = [];
+    rows.forEach(function(r){ if (r.unitPost !== null) vals.push(r.unitPost); if (r.unitPre !== null) vals.push(r.unitPre); });
+    if (!vals.length) return '<svg class="kd-spark" viewBox="0 0 120 40" aria-hidden="true"></svg>';
+    var lo = Math.min.apply(null, vals), hi = Math.max.apply(null, vals), pad = (hi - lo) * 0.15 || hi * 0.05 || 1;
+    lo -= pad; hi += pad;
+    var step = 120 / (rows.length - 1 || 1);
+    function y(v){ return (40 - (v - lo) / (hi - lo) * 40).toFixed(2); }
+    function path(key){
+      return KindModel.segments(rows, key).map(function(seg){
+        return seg.map(function(i, k){ return (k ? "L" : "M") + (i * step).toFixed(2) + " " + y(rows[i][key]); }).join(" ");
+      }).join(" ");
+    }
+    var bandX = (rows.length - 3.5) * step;
+    return '<svg class="kd-spark" viewBox="0 0 120 40" preserveAspectRatio="none" role="img" aria-label="월별 개당 원가 추이">' +
+      '<rect x="' + bandX.toFixed(2) + '" y="0" width="' + (120 - bandX).toFixed(2) + '" height="40" fill="rgba(255,204,0,.25)"/>' +
+      '<path d="' + path("unitPre") + '" fill="none" stroke="#d13b0e" stroke-width="1.5" stroke-dasharray="3 2" vector-effect="non-scaling-stroke"/>' +
+      '<path class="kd-line" d="' + path("unitPost") + '" fill="none" stroke="#111" stroke-width="2.5" vector-effect="non-scaling-stroke" stroke-linejoin="round"/></svg>';
+  }
+  function kindBadge(k){
+    if (k.status === "alert") return '<span class="badge flag">기종 주의 ' + k.reasons.map(function(f){ return CIRC[f]; }).join("") + "</span>";
+    if (k.status === "unknown") return '<span class="badge unknown">판단 불가</span>';
+    return '<span class="badge ok">정상</span>';
+  }
+  function renderKinds(){
+    KINDS = KindModel.build(DATA, STORE.settings());
+    if (!KINDS.some(function(k){ return k.kind === selectedKind; })) selectedKind = KINDS.length ? KINDS[0].kind : null;
+    document.getElementById("kd-asof").textContent = "기준 시점 " + DATA.lastMonth + " · 최근 3개월 " + C.addMonths(DATA.lastMonth, -2) + "~" + DATA.lastMonth.slice(5) + " vs 직전 3개월";
+    document.getElementById("kd-cards").innerHTML = KINDS.map(function(k){
+      var a = k.a, chg = a.unitChange, gap = a.marginGap;
+      return '<article class="kd' + (k.status === "alert" ? " alert" : "") + (k.kind === selectedKind ? " sel" : "") + '" data-kind="' + esc(k.kind) + '">' +
+        '<button type="button" class="kd-pick" data-kind="' + esc(k.kind) + '" aria-pressed="' + (k.kind === selectedKind) + '">' +
+          '<span class="kd-top"><b>' + esc(k.kind) + "</b>" + kindBadge(k) + "</span>" +
+          '<span class="kd-label">최근 3개월 개당 원가</span>' +
+          '<span class="kd-num num">' + (a.unitRecent !== undefined ? C.won(a.unitRecent) + "원" : "—") + "</span>" +
+          '<span class="kd-chg num ' + (chg === null ? "" : chg > 0 ? "over" : chg < 0 ? "under" : "") + '" data-k="chg">' + (chg === null ? "비교 불가" : C.pct(chg, 1, true)) + " <small>직전 3개월 대비</small></span>" +
+          sparkline(k.monthly) +
+          '<span class="kd-margin num" data-k="margin">이익률 ' + (gap === null ? "—" : C.pct(a.marginEst, 1) + " → " + C.pct(a.marginAct, 1) +
+            ' <b class="' + (gap < 0 ? "over" : "under") + '">(' + (gap * 100 > 0 ? "+" : gap * 100 < 0 ? "−" : "") + Math.abs(gap * 100).toFixed(1) + "%p)</b>") + "</span>" +
+        "</button>" +
+        '<a class="kd-link" href="#projects?kind=' + encodeURIComponent(k.kind) + '"><span>프로젝트 ' + k.count + "개 · 확인 필요 " + k.flagged + "</span><span>보기 →</span></a></article>";
+    }).join("");
+    renderKindBig();
+  }
+  function renderKindBig(){
+    var box = document.getElementById("kd-big"), k = KINDS.filter(function(x){ return x.kind === selectedKind; })[0];
+    if (!k){ box.innerHTML = '<div class="empty">기종 데이터가 없습니다</div>'; return; }
+    var rows = k.monthly, max = 0;
+    rows.forEach(function(r){ max = Math.max(max, r.unitPost || 0, r.unitPre || 0); });
+    max = max * 1.08 || 1;
+    var cols = rows.map(function(r, i){
+      var recent = i >= rows.length - 3;
+      if (r.unitPost === null) return '<div class="kd-col' + (recent ? " recent" : "") + '" data-month="' + r.month + '"><span class="empty-m">없음</span></div>';
+      var hO = r.unitOther / max * 100, hM = r.unitMat / max * 100;
+      return '<div class="kd-col' + (recent ? " recent" : "") + '" data-month="' + r.month + '" title="' + r.month + " · 실제 " + C.won(r.unitPost) + "원 · 견적 " + C.won(r.unitPre) + '원">' +
+        '<span class="est" style="bottom:' + (r.unitPre / max * 100).toFixed(2) + '%"></span>' +
+        '<div class="seg-oth" style="height:' + hO.toFixed(2) + '%"></div><div class="seg-mat" style="height:' + hM.toFixed(2) + '%"></div></div>';
+    }).join("");
+    var labels = rows.map(function(r){ return "<span>" + (+r.month.slice(5)) + "월</span>"; }).join("");
+    var table = rows.slice().reverse().map(function(r){
+      return "<tr><td>" + r.month + "</td><td>" + r.n + "</td><td>" + (r.unitPost === null ? "—" : C.won(r.unitPost)) + "</td><td>" + (r.unitPre === null ? "—" : C.won(r.unitPre)) +
+        "</td><td>" + (r.unitPost === null ? "—" : C.pct(r.unitPost / r.unitPre - 1, 1, true)) + "</td></tr>";
+    }).join("");
+    box.innerHTML = '<h2>' + esc(k.kind) + " · 월별 개당 원가</h2>" +
+      '<div class="kd-legend"><span><i class="mat"></i>재료비(동선·코어·주물)</span><span><i class="oth"></i>기타(부품·가공비)</span><span><i class="est"></i>견적 개당 원가</span><span>노란 바탕 = 최근 3개월</span></div>' +
+      '<div class="kd-chart" role="img" aria-label="' + esc(k.kind) + ' 월별 개당 원가 막대 차트">' + cols + '</div><div class="kd-months">' + labels + "</div>" +
+      '<p class="hint">세로축은 0원부터입니다. 완료된 프로젝트가 없는 달은 막대를 그리지 않습니다(0원이 아님).</p>' +
+      '<details><summary>월별 숫자 보기</summary><table class="kd-table num"><thead><tr><th>생산월</th><th>건수</th><th>실제 개당</th><th>견적 개당</th><th>차이</th></tr></thead><tbody>' + table + "</tbody></table></details>" +
+      '<a class="btn primary" style="display:inline-flex;align-items:center;justify-self:start;text-decoration:none" href="#projects?kind=' + encodeURIComponent(k.kind) + '">' + esc(k.kind) + " 프로젝트 " + k.count + "개 보기 →</a>";
+  }
+  document.getElementById("kd-cards").addEventListener("click", function(e){
+    var b = e.target.closest(".kd-pick"); if (!b) return;
+    selectedKind = b.getAttribute("data-kind"); renderKinds();
+    if (!window.matchMedia("(min-width:960px)").matches) document.getElementById("kd-big").scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+  renderKinds();
+
   buildSettingsForm(); renderOwner(); renderNotesInfo();
   setStatus("저장된 기준값으로 계산 중 · 확인 필요 " + flaggedCount(DATA) + "건");
 
