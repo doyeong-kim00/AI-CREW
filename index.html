@@ -365,6 +365,8 @@ body.sheet-open{overflow:hidden}
 .set-group{border:1.5px solid var(--line-soft); border-radius:var(--radius); padding:10px 12px 12px; margin:0; display:grid; gap:10px}
 .set-group legend{font-size:13px; font-weight:900; padding:0 4px}
 .set-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px}
+.set-select{width:100%; min-height:44px; border:var(--border); border-radius:var(--radius); background:var(--surface); font:inherit; font-size:15px; font-weight:700; padding:0 10px}
+.dt-ver{font-size:12px; font-weight:700; color:var(--muted)}
 .set-errors{border:2px solid var(--over); background:var(--over-soft); color:var(--over); border-radius:var(--radius); padding:10px 12px; font-size:13.5px; font-weight:800}
 .set-errors ul{margin:4px 0 0; padding-left:18px}
 .set-actions{display:flex; gap:8px; flex-wrap:wrap}
@@ -699,6 +701,8 @@ body.sheet-open{overflow:hidden}
       <fieldset class="set-group"><legend>기종 주의 기준</legend>
         <div class="set-grid" id="set-grid-kind"></div>
       </fieldset>
+      <label class="set-field wide"><span>비교 기준 견적 (버전이 여러 개일 때)</span>
+        <select id="set-basever" class="set-select"><option value="last">최종 버전 (기본)</option><option value="first">최초 버전</option></select></label>
       <div class="set-errors" id="set-errors" role="alert" hidden></div>
       <div class="set-actions">
         <button type="submit" class="btn primary">적용</button>
@@ -713,7 +717,7 @@ body.sheet-open{overflow:hidden}
       <button type="button" class="btn danger" id="set-clear">메모·확정 모두 지우기</button>
     </div>
 
-    <div class="section-label"><span>자가 검산 (정답.md 예시 A~O + 가상 데이터 + 화면 점검)</span></div>
+    <div class="section-label"><span>자가 검산 (정답.md 예시 A~P + 가상 데이터 + 화면 점검)</span></div>
     <div class="selftest" id="selftest" aria-live="polite">
       <div class="kpi dark st-summary"><span class="kpi-label">계산 엔진 검산</span><span class="st-score num" id="st-score">—</span><span class="st-note" id="st-note">검산 중…</span></div>
       <div class="card list" id="st-list"></div>
@@ -749,6 +753,7 @@ var CostCalc = (function(){
 
   var DEFAULTS = {
     rateMin: 0.05,       // 확인 필요 ① 차이율
+    baseVersion: "last", // 비교 기준 견적 버전 (R6.10): last 최종 / first 최초
     amtMin: 300000,      // 확인 필요 ① 금액 하한
     amtMax: 2000000,     // 확인 필요 ② 금액 상한
     unexplRatio: 0.5,    // 확인 필요 ③ 미분해 / 단가 효과
@@ -891,10 +896,14 @@ var CostCalc = (function(){
 
   /* ---- 기종 (spec R1) ---- */
   function sumWindow(list, from, to){
-    var a = { n: 0, pre: 0, post: 0, qty: 0, price: 0 };
+    // 수량이 있는 프로젝트만 개당 원가에, 판매금액이 있는 프로젝트만 이익률에 (R6.11)
+    var a = { n: 0, pre: 0, post: 0, qty: 0, preQ: 0, postQ: 0, price: 0, preP: 0, postP: 0 };
     list.forEach(function(t){
       var i = monthIndex(t.doneMonth);
-      if (i >= monthIndex(from) && i <= monthIndex(to)){ a.n++; a.pre += t.pre; a.post += t.post; a.qty += t.qty; a.price += t.price; }
+      if (i < monthIndex(from) || i > monthIndex(to)) return;
+      a.n++; a.pre += t.pre; a.post += t.post;
+      if (t.qty > 0){ a.qty += t.qty; a.preQ += t.pre; a.postQ += t.post; }
+      if (t.price > 0){ a.price += t.price; a.preP += t.pre; a.postP += t.post; }
     });
     return a;
   }
@@ -905,8 +914,8 @@ var CostCalc = (function(){
     for (var i = monthIndex(firstMonth); i <= monthIndex(lastMonth); i++){
       var m = monthFromIndex(i), w = sumWindow(mine, m, m);
       rows.push({ month: m, n: w.n,
-                  unitPre: w.qty > 0 ? w.pre / w.qty : null,
-                  unitPost: w.qty > 0 ? w.post / w.qty : null });
+                  unitPre: w.qty > 0 ? w.preQ / w.qty : null,
+                  unitPost: w.qty > 0 ? w.postQ / w.qty : null });
     }
     return rows;
   }
@@ -919,14 +928,14 @@ var CostCalc = (function(){
     var r = { kind: kind, recent: recent, prev: prev };
 
     if (recent.qty > 0 && prev.qty > 0){
-      r.unitRecent = recent.post / recent.qty; r.unitPrev = prev.post / prev.qty;
+      r.unitRecent = recent.postQ / recent.qty; r.unitPrev = prev.postQ / prev.qty;
       r.unitChange = r.unitRecent / r.unitPrev - 1;
       r.unit = r.unitChange >= s.kindUnitUp ? "alert" : "ok";
     } else { r.unit = "unknown"; r.unitChange = null; }
 
     if (recent.n > 0 && recent.price > 0){
-      r.marginEst = (recent.price - recent.pre) / recent.price;
-      r.marginAct = (recent.price - recent.post) / recent.price;
+      r.marginEst = (recent.price - recent.preP) / recent.price;
+      r.marginAct = (recent.price - recent.postP) / recent.price;
       r.marginGap = r.marginAct - r.marginEst;
       r.margin = r.marginGap <= -s.kindMarginDrop ? "alert" : "ok";
     } else { r.margin = "unknown"; r.marginGap = null; }
@@ -1228,6 +1237,42 @@ var SelfTest = (function(C){
         ck("확인 필요 아닌 확정은 검토율에 안 넣음", Report.reviewRate(ListModel.model(D, {}, st2.confirmedSet()).summary), 0, 0);
         ck("예외 비율 5/731", (D.exceptions.length / (D.rawCount.quotes + D.rawCount.actuals) * 100).toFixed(1), "0.7");
     }},
+    { id: "P", title: "예시 P · 견적 버전·선택 열·확정자 (임원 검수 2차)", run: function(ck){
+        function q(pj, ver, date, sp){ return { pj: pj, ver: ver, quoteDate: date, baseMonth: date.slice(0, 7), kind: "K", customer: "", qty: 1, price: 1000000, code: "CU", name: "동선", unit: "kg", sq: 10, sp: sp, index: null }; }
+        var act = [{ pj: "V1", code: "CU", unit: "kg", aq: 11, ap: 18000, doneMonth: "2026-05" }];
+        var R = { quotes: [q("V1", "v1", "2026-01-10", 15000), q("V1", "v2", "2026-02-20", 16000)], actuals: act, index: {} };
+        var last = DemoData.compute(DemoData.inspect(R, { baseVersion: "last" })), first = DemoData.compute(DemoData.inspect(R, { baseVersion: "first" }));
+        var tl = last.projects[0], tf = first.projects[0];
+        ck("P-1 최종 기준 사전/차이/예외", tl.pre + "/" + tl.diff + "/" + last.exceptions.length, "160000/38000/0");
+        ck("P-1 최초 기준 사전/차이/예외", tf.pre + "/" + tf.diff + "/" + first.exceptions.length, "150000/48000/0");
+        ck("P-1 버전 목록·사용 버전", tl.versions.join(",") + "|" + tl.version, "v1,v2|v2");
+        var R2 = { quotes: [q("V1", "2차", "2026-01-01", 16000), q("V1", "1차", "2026-03-01", 15000)], actuals: act, index: {} };
+        ck("P-1 이름 안 숫자 우선 (2차가 최종)", DemoData.compute(DemoData.inspect(R2)).projects[0].pre, 160000, 0);
+        var R3 = { quotes: [q("V1", "최초", "2026-01-10", 15000), q("V1", "수정", "2026-02-20", 16000)], actuals: act, index: {} };
+        ck("P-1 숫자 없으면 작성일 순 (수정이 최종)", DemoData.compute(DemoData.inspect(R3)).projects[0].pre, 160000, 0);
+        var box = document.createElement("div"); box.innerHTML = DetailView.render(tl);
+        ck("P-1 상세 버전 표시", /견적 v1·v2 중 v2 기준/.test(box.querySelector('[data-k="version"]').textContent), true);
+        function load(qcsv, acsv){
+          var qm = Importer.mapTable(Importer.parseCsv(qcsv), "quotes"), am = Importer.mapTable(Importer.parseCsv(acsv), "actuals");
+          return { ok: qm.ok && am.ok, D: DemoData.compute(DemoData.inspect(Importer.toRaw(qm, am, null))) };
+        }
+        var z = load("프로젝트번호,기종,견적기준월,재료코드,견적사용량,견적단가\r\nZ-1,K9,2026-01,CU,10,15000\r\n",
+                     "프로젝트번호,재료코드,실제사용량,실제단가,생산완료월\r\nZ-1,CU,11,18000,2026-05\r\n");
+        ck("P-2 판매금액·수량 열 없이 불러오기", z.ok, true);
+        ck("P-2 프로젝트 차이는 계산", z.D.projects.length + "/" + (z.D.projects[0] && z.D.projects[0].diff), "1/48000");
+        var kz = KindModel.build(z.D, CostCalc.DEFAULTS)[0];
+        ck("P-2 기종은 정보 없음 → 판단 불가", kz.status + "/" + kz.a.unit + "/" + kz.a.margin, "unknown/unknown/unknown");
+        var z0 = load("프로젝트번호,기종,견적기준월,재료코드,견적사용량,견적단가,판매금액\r\nZ-2,K9,2026-01,CU,10,15000,0\r\n",
+                      "프로젝트번호,재료코드,실제사용량,실제단가,생산완료월\r\nZ-2,CU,11,18000,2026-05\r\n");
+        ck("P-2 판매금액 0 → 계산 보류(빈 값)", z0.D.held.length + "/" + (z0.D.exceptions[0] && z0.D.exceptions[0].reason), "1/빈 값");
+        var st = Store.create(Store.memoryStorage()); st.state.owner = "김원가";
+        st.setMemo("PJ-3047", "긴급 구매"); st.setConfirmed("PJ-3047", true, "김원가");
+        ck("P-3 확정자 저장", st.note("PJ-3047").by, "김원가");
+        var tb = Report.resultTable(ListModel.model(DemoData.get(), {}, st.confirmedSet()), st.note), hi = tb[0].indexOf("확정자");
+        ck("P-3 결과 CSV 확정자", tb.filter(function(r){ return r[0] === "PJ-3047"; })[0][hi], "김원가");
+        st.setMemo("PJ-3047", "");
+        ck("P-3 메모 지우면 확정·확정자도 지움", st.note("PJ-3047").confirmed + "/" + st.note("PJ-3047").by, "false/");
+    }},
     { id: "DATA", title: "가상 데이터 · 예외 판정 (spec R0, R4.3)", run: function(ck){
         var D = DemoData.get();
         var reasons = {}; D.exceptions.forEach(function(e){ reasons[e.reason + "|" + e.pj] = e.action; });
@@ -1400,7 +1445,26 @@ var DemoData = (function(C){
   function same(a, b){ return JSON.stringify(a) === JSON.stringify(b); }
 
   // 1단계: 원본 검사 (설정과 무관, R4.6) → 계산할 프로젝트 / 계산 보류 / 예외
-  function inspect(raw){
+  // 견적 버전 고르기 (R6.10): 프로젝트마다 버전이 여러 개면 하나만 쓴다. 순서 = 버전 이름 안 숫자, 없으면 견적작성일
+  function pickVersions(rows, mode, info){
+    var by = {};
+    rows.forEach(function(r){ var v = String(r.ver || ""); (by[r.pj] = by[r.pj] || {}); (by[r.pj][v] = by[r.pj][v] || []).push(r); });
+    var chosen = {};
+    Object.keys(by).forEach(function(pj){
+      var vers = Object.keys(by[pj]);
+      if (vers.length <= 1){ chosen[pj] = vers[0]; return; }
+      var meta = vers.map(function(v){
+        var m = v.match(/\d+(\.\d+)?/), d = by[pj][v].map(function(r){ return r.quoteDate || ""; }).sort()[0];
+        return { v: v, n: m ? Number(m[0]) : null, d: d };
+      });
+      meta.sort(function(a, b){ return (a.n !== null && b.n !== null && a.n !== b.n) ? a.n - b.n : (a.d < b.d ? -1 : a.d > b.d ? 1 : 0); });
+      chosen[pj] = mode === "first" ? meta[0].v : meta[meta.length - 1].v;
+      info[pj] = { versions: meta.map(function(x){ return x.v; }), used: chosen[pj] };
+    });
+    return rows.filter(function(r){ return String(r.ver || "") === chosen[r.pj]; });
+  }
+
+  function inspect(raw, opts){
     var exceptions = [], held = [], projects = [];
     function ex(reason, action, pj, code, source, detail){ exceptions.push({ reason: reason, action: action, pj: pj, code: code || "", source: source, detail: detail }); }
     var conflict = {};   // 값이 다른 중복이 있는 프로젝트 → 계산 보류
@@ -1419,7 +1483,8 @@ var DemoData = (function(C){
       });
       return out;
     }
-    var quotes = dedupe(raw.quotes, "견적"), actuals = dedupe(raw.actuals, "실적");
+    var verInfo = {}, mode = (opts && opts.baseVersion === "first") ? "first" : "last";
+    var quotes = dedupe(pickVersions(raw.quotes, mode, verInfo), "견적"), actuals = dedupe(raw.actuals, "실적");
 
     function group(rows){ var g = {}; rows.forEach(function(r){ (g[r.pj] = g[r.pj] || []).push(r); }); return g; }
     var gq = group(quotes), ga = group(actuals);
@@ -1431,8 +1496,9 @@ var DemoData = (function(C){
     Object.keys(gq).filter(function(pj){ return ga[pj]; }).sort().forEach(function(pj){
       var qs = gq[pj], h = qs[0], problems = [], mats = [], doneMonth = ga[pj][0].doneMonth;
       if (conflict[pj]) problems.push(["중복 행", "", "", null]);   // 예외는 dedupe에서 이미 기록
-      if (bad(h.qty)) problems.push(["빈 값", "", "견적", "생산수량이 비었거나 0 이하"]);
-      if (bad(h.price)) problems.push(["빈 값", "", "견적", "판매금액이 비었거나 0 이하"]);
+      function given(v){ return !(v === null || v === undefined || v === ""); }                 // 비어 있으면 허용 (R6.11)
+      if (given(h.qty) && bad(h.qty)) problems.push(["빈 값", "", "견적", "생산수량이 0 이하이거나 숫자가 아님"]);
+      if (given(h.price) && bad(h.price)) problems.push(["빈 값", "", "견적", "판매금액이 0 이하이거나 숫자가 아님"]);
       // 재료 단위: 실적에만 있는 재료 행 → 견적 없음 (조용히 버리지 않음)
       ga[pj].forEach(function(a){
         if (!qs.some(function(q){ return q.code === a.code; })) problems.push(["견적 없음", a.code, "실적", a.code + " 실적 행이 있는데 견적에 이 재료가 없음"]);
@@ -1452,8 +1518,9 @@ var DemoData = (function(C){
           mats.push({ code: q.code, name: q.name, type: "split", sq: q.sq, sp: q.sp, aq: a.aq, ap: a.ap, index: q.index });
         }
       });
-      var info = { id: pj, kind: h.kind, customer: h.customer, version: h.ver, quoteDate: h.quoteDate, qty: h.qty, price: h.price,
-                   baseMonth: h.baseMonth, doneMonth: doneMonth, materials: mats };
+      var info = { id: pj, kind: h.kind, customer: h.customer, version: h.ver, quoteDate: h.quoteDate,
+                   qty: given(h.qty) ? h.qty : null, price: given(h.price) ? h.price : null,
+                   baseMonth: h.baseMonth, doneMonth: doneMonth, materials: mats, versions: verInfo[pj] ? verInfo[pj].versions : null };
       if (problems.length){
         // 단위 불일치 / 빈 값 / 재료 단위 누락 / 값이 다른 중복 → 계산 보류 (합계·기종 집계·확인 필요에서 제외)
         problems.forEach(function(p){ if (p[3] !== null) ex(p[0], "계산 보류", pj, p[1], p[2], p[3]); });
@@ -1471,7 +1538,7 @@ var DemoData = (function(C){
     var exceptions = ins.exceptions.slice();
     var computed = ins.projects.map(function(p){
       var t = C.project(p, ins.index, settings);
-      t.customer = p.customer; t.version = p.version; t.quoteDate = p.quoteDate;
+      t.customer = p.customer; t.version = p.version; t.quoteDate = p.quoteDate; t.versions = p.versions;
       if (!t.checkOk) exceptions.push({ reason: "검산 불일치", action: "합계에서 제외", pj: p.id, code: "", source: "계산",
                                          detail: "분해 합계와 총차이가 " + C.won(t.check, true) + "원 다름" });
       return t;
@@ -1490,15 +1557,21 @@ var DemoData = (function(C){
 
   function buildData(raw, settings){ return compute(inspect(raw), settings); }
 
-  var demoInspected = null, cur = { inspected: null, source: { kind: "demo" } };
+  var demoInspected = null, cur = { raw: null, byMode: {}, source: { kind: "demo" } };
   function get(settings){                       // 언제나 가상 데이터 (자가 검산·정답 대조용). 원본 검사는 한 번만
     if (!demoInspected) demoInspected = inspect(generate());
     return compute(demoInspected, settings);
   }
-  function current(settings){ return cur.inspected ? compute(cur.inspected, settings) : get(settings); }   // 지금 화면 데이터
-  function use(raw, meta){ cur = { inspected: inspect(raw), raw: raw, source: Object.assign({ kind: "file" }, meta || {}) }; return cur.inspected; }
+  function modeOf(settings){ return settings && settings.baseVersion === "first" ? "first" : "last"; }
+  function current(settings){                                    // 지금 화면 데이터 (견적 버전 모드별로 원본 검사를 한 번씩)
+    if (!cur.raw) return get(settings);
+    var m = modeOf(settings);
+    if (!cur.byMode[m]) cur.byMode[m] = inspect(cur.raw, { baseVersion: m });
+    return compute(cur.byMode[m], settings);
+  }
+  function use(raw, meta){ var ins = inspect(raw); cur = { raw: raw, byMode: { last: ins }, source: Object.assign({ kind: "file" }, meta || {}) }; return ins; }
   function currentRaw(){ return cur.raw || generate(); }
-  function useDemo(){ cur = { inspected: null, source: { kind: "demo" } }; }
+  function useDemo(){ cur = { raw: null, byMode: {}, source: { kind: "demo" } }; }
   function source(){ return cur.source; }
   function saveState(){ return cur; }
   function restoreState(s){ cur = s; }
@@ -1690,7 +1763,8 @@ var DetailView = (function(C, L){
         (M.axisStart > 0 ? '<p class="hint" data-k="axis">가로축 ' + C.won(M.axisStart) + "원부터 (축을 자름)</p>" : "") + "</section>" +
 
       '<section class="dt-sec"><h3>당시 견적 기준</h3><dl class="dt-base">' +
-        "<div><dt>견적</dt><dd>" + esc(t.version || "—") + " · " + esc(t.quoteDate || "—") + "</dd></div>" +
+        '<div><dt>견적</dt><dd data-k="version">' + esc(t.version || "—") + " · " + esc(t.quoteDate || "—") +
+          (t.versions ? '<br><small class="dt-ver">견적 ' + esc(t.versions.join("·")) + " 중 " + esc(t.version) + " 기준</small>" : "") + "</dd></div>" +
         '<div><dt>견적 기준월</dt><dd>' + t.baseMonth + "</dd></div>" +
         "<div><dt>생산 완료월</dt><dd>" + t.doneMonth + "</dd></div>" +
         '<div><dt>경과</dt><dd data-k="elapsed">' + t.elapsed + "개월" + (t.flags.indexOf(4) >= 0 ? " ④" : "") + "</dd></div>" +
@@ -1761,6 +1835,7 @@ var Store = (function(C){
         if (o && typeof o === "object"){
           var v = validate(toDisplay(Object.assign({}, C.DEFAULTS, o.settings || {})));
           state.settings = v.ok ? v.settings : {};                 // 깨진 기준값이면 기본값
+          if (o.settings && o.settings.baseVersion === "first") state.settings.baseVersion = "first";
           state.owner = typeof o.owner === "string" ? o.owner.slice(0, 40) : "";
           state.notes = (o.notes && typeof o.notes === "object") ? o.notes : {};
         }
@@ -1773,26 +1848,28 @@ var Store = (function(C){
       return canSave;
     }
     function settings(){ return Object.assign({}, C.DEFAULTS, state.settings); }
-    function applySettings(input, owner){
+    function applySettings(input, owner, baseVersion){
       var v = validate(input);
       if (!v.ok) return v;
       state.settings = v.settings;
+      if (baseVersion === "first") state.settings.baseVersion = "first";
       if (typeof owner === "string") state.owner = owner.trim().slice(0, 40);
       save();
       return v;
     }
     function resetSettings(){ state.settings = {}; save(); }
-    function note(id){ return state.notes[id] || { memo: "", confirmed: false, at: "" }; }
+    function note(id){ return state.notes[id] || { memo: "", confirmed: false, at: "", by: "" }; }
     function setMemo(id, memo){
       var n = note(id);
-      state.notes[id] = { memo: String(memo).slice(0, 2000), confirmed: n.confirmed && String(memo).trim().length > 0, at: stamp() };
+      var keep = n.confirmed && String(memo).trim().length > 0;
+      state.notes[id] = { memo: String(memo).slice(0, 2000), confirmed: keep, at: stamp(), by: keep ? (n.by || "") : "" };
       save();
       return state.notes[id];
     }
-    function setConfirmed(id, on){
+    function setConfirmed(id, on, by){
       var n = note(id);
       if (on && n.memo.trim().length === 0) return { ok: false, message: "원인 메모를 먼저 적어 주세요" };
-      state.notes[id] = { memo: n.memo, confirmed: !!on, at: stamp() };
+      state.notes[id] = { memo: n.memo, confirmed: !!on, at: stamp(), by: on ? String(by || state.owner || "").slice(0, 40) : "" };   // 확정자 (R7.7)
       save();
       return { ok: true };
     }
@@ -1820,7 +1897,9 @@ var KindModel = (function(C){
       var a = { n: 0, qty: 0, pre: 0, post: 0, mat: 0, other: 0 };
       mine.forEach(function(t){
         if (t.doneMonth !== m) return;
-        a.n++; a.qty += t.qty; a.pre += t.pre; a.post += t.post;
+        a.n++;
+        if (!(t.qty > 0)) return;                               // 수량 없는 프로젝트는 개당 원가에서 뺀다 (R6.11)
+        a.qty += t.qty; a.pre += t.pre; a.post += t.post;
         t.materials.forEach(function(x){ if (x.type === "split") a.mat += x.post; else a.other += x.post; });
       });
       rows.push({ month: m, n: a.n,
@@ -1877,7 +1956,7 @@ var Importer = (function(){
       qty: ["생산수량", "수량", "qty"], price: ["판매금액", "견적판매금액", "판매가", "매출액"], code: ["재료코드", "자재코드"],
       name: ["재료명", "자재명", "품명"], unit: ["단위", "unit"], sq: ["견적사용량", "사용량", "SQ"], sp: ["견적단가", "적용단가", "단가", "SP"],
       index: ["단가출처지표", "출처지표", "지표"], amount: ["견적금액", "금액"] },
-      required: ["pj", "kind", "qty", "price", "baseMonth", "code"], oneOf: [["sq", "sp"], ["amount"]] },
+      required: ["pj", "kind", "baseMonth", "code"], oneOf: [["sq", "sp"], ["amount"]] },
     actuals: { label: "실적", fields: {
       pj: ["프로젝트번호", "프로젝트", "PJ번호", "PJ", "project"], code: ["재료코드", "자재코드"], unit: ["단위", "unit"],
       aq: ["실제사용량", "사용량", "AQ"], ap: ["실제단가", "실제출고단가", "출고단가", "단가", "AP"], amount: ["실적금액", "실제금액", "금액"],
@@ -2122,18 +2201,19 @@ var Report = (function(C, Importer){
   // R7.1 · R7.6: 지금 걸러진 목록 + 계산 보류(맨 아래)
   function resultTable(M, noteOf){
     var head = ["프로젝트번호", "기종", "고객", "생산완료월", "견적기준월", "경과개월", "사전원가", "사후원가", "차이", "차이율(%)",
-                "사용량효과", "고시가몫", "미분해", "나누지않은단가", "기타", "분해범위(%)", "상태", "확인필요사유", "확정", "원인메모", "메모시각"];
+                "사용량효과", "고시가몫", "미분해", "나누지않은단가", "기타", "분해범위(%)", "상태", "확인필요사유", "확정", "확정자", "원인메모", "메모시각", "견적버전"];
     var rows = M.rows.map(function(t){
       var n = noteOf(t.id);
       var status = !t.checkOk ? "검산 불일치" : t.flags.length ? "확인 필요" : "정상";
       return [t.id, t.kind, t.customer || "", t.doneMonth, t.baseMonth, t.elapsed, r0(t.pre), r0(t.post), r0(t.diff), r2(t.rate),
               r0(t.use), t.hasIndex ? r0(t.indexShare) : "", t.hasIndex ? r0(t.unexpl) : "", r0(t.undivided), r0(t.other),
               t.coverage === null ? "" : Math.round(t.coverage * 1000) / 10, status, t.flags.map(function(f){ return CIRC[f]; }).join(""),
-              n.confirmed ? "확정" : "", n.memo || "", n.at || ""];
+              n.confirmed ? "확정" : "", n.confirmed ? (n.by || "") : "", n.memo || "", n.at || "",
+              (t.version || "") + (t.versions ? " (" + t.versions.join("·") + " 중)" : "")];
     });
     M.held.forEach(function(h){
       var n = noteOf(h.id);
-      rows.push([h.id, h.kind, "", h.doneMonth, "", "", "", "", "", "", "", "", "", "", "", "", "계산 보류", "", n.confirmed ? "확정" : "", n.memo || "", n.at || ""]);
+      rows.push([h.id, h.kind, "", h.doneMonth, "", "", "", "", "", "", "", "", "", "", "", "", "계산 보류", "", n.confirmed ? "확정" : "", n.confirmed ? (n.by || "") : "", n.memo || "", n.at || "", ""]);
     });
     return [head].concat(rows);
   }
@@ -2152,7 +2232,7 @@ var Report = (function(C, Importer){
     Object.keys(o.notes).forEach(function(id){
       var n = o.notes[id];
       if (!n || typeof n !== "object") return;
-      store.state.notes[id] = { memo: String(n.memo || "").slice(0, 2000), confirmed: !!n.confirmed && String(n.memo || "").trim().length > 0, at: String(n.at || "") };
+      store.state.notes[id] = { memo: String(n.memo || "").slice(0, 2000), confirmed: !!n.confirmed && String(n.memo || "").trim().length > 0, at: String(n.at || ""), by: String(n.by || "").slice(0, 40) };
       if (store.state.notes[id].memo.trim()) memo++;
       if (store.state.notes[id].confirmed) conf++;
     });
@@ -2431,7 +2511,7 @@ var Report = (function(C, Importer){
     document.getElementById("st-list").innerHTML = html;
     document.getElementById("st-score").textContent = passed + " / " + total;
     document.getElementById("st-note").textContent = allOk
-      ? "정답.md 예시 A~O, 가상 데이터 점검, 화면 점검이 모두 정답과 일치합니다 (금액 1원·비율 0.01%p 미만). 검산은 언제나 가상 데이터·기본 기준값으로 돌고, 끝나면 지금 데이터로 되돌립니다."
+      ? "정답.md 예시 A~P, 가상 데이터 점검, 화면 점검이 모두 정답과 일치합니다 (금액 1원·비율 0.01%p 미만). 검산은 언제나 가상 데이터·기본 기준값으로 돌고, 끝나면 지금 데이터로 되돌립니다."
       : "정답과 다른 항목이 있습니다";
     document.querySelector(".st-summary").classList.toggle("fail", !allOk);
     if (selfTestBanner) selfTestBanner.textContent = "selftest " + passed + "/" + total + (allOk ? " PASS" : " FAIL") + " · errors " + window.__errs.length + (window.__errs.length ? " (" + window.__errs[0] + ")" : "");
@@ -2656,7 +2736,7 @@ var Report = (function(C, Importer){
       sec.classList.toggle("done", cur.confirmed);
       btn.textContent = cur.confirmed ? "확정 취소" : "확정하기";
       st.className = "memo-state" + (err ? " err" : "");
-      st.textContent = msg || ((cur.at ? (cur.confirmed ? "확정됨 · " : "메모 저장됨 · ") + cur.at : "아직 메모가 없습니다") +
+      st.textContent = msg || ((cur.at ? (cur.confirmed ? "확정됨 · " + (cur.by ? cur.by + " · " : "") : "메모 저장됨 · ") + cur.at : "아직 메모가 없습니다") +
         (STORE.canSave() ? "" : " · 이 브라우저에서는 저장되지 않음"));
     }
     function saveMemo(){ var before = STORE.note(id).confirmed; STORE.setMemo(id, ta.value); paint(); if (before !== STORE.note(id).confirmed) renderList(true); }
@@ -2668,7 +2748,7 @@ var Report = (function(C, Importer){
     });
     btn.addEventListener("click", function(){
       clearTimeout(timer); STORE.setMemo(id, ta.value);
-      var res = STORE.setConfirmed(id, !STORE.note(id).confirmed);
+      var res = STORE.setConfirmed(id, !STORE.note(id).confirmed, STORE.state.owner);
       if (!res.ok){ paint(res.message, true); ta.focus(); return; }
       paint(); renderList(true); renderNotesInfo();
     });
@@ -2687,6 +2767,7 @@ var Report = (function(C, Importer){
     document.getElementById("set-grid-flag").innerHTML = Store.FIELDS.filter(function(f){ return flagKeys.indexOf(f.key) >= 0; }).map(field).join("");
     document.getElementById("set-grid-kind").innerHTML = Store.FIELDS.filter(function(f){ return kindKeys.indexOf(f.key) >= 0; }).map(field).join("");
     document.getElementById("set-owner").value = STORE.state.owner;
+    document.getElementById("set-basever").value = STORE.settings().baseVersion === "first" ? "first" : "last";
     document.getElementById("set-errors").hidden = true;
   }
   function flaggedCount(D){ return D.projects.filter(function(t){ return t.flags.length; }).length; }
@@ -2720,7 +2801,7 @@ var Report = (function(C, Importer){
     e.preventDefault();
     var input = {};
     Store.FIELDS.forEach(function(f){ input[f.key] = document.querySelector('#set-form input[name="' + f.key + '"]').value; });
-    var before = flaggedCount(DATA), res = STORE.applySettings(input, document.getElementById("set-owner").value);
+    var before = flaggedCount(DATA), res = STORE.applySettings(input, document.getElementById("set-owner").value, document.getElementById("set-basever").value);
     document.querySelectorAll("#set-form .set-field").forEach(function(el){ el.classList.remove("bad"); });
     var box = document.getElementById("set-errors");
     if (!res.ok){
