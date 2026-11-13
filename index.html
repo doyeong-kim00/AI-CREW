@@ -1272,6 +1272,24 @@ var SelfTest = (function(C){
         ck("P-3 결과 CSV 확정자", tb.filter(function(r){ return r[0] === "PJ-3047"; })[0][hi], "김원가");
         st.setMemo("PJ-3047", "");
         ck("P-3 메모 지우면 확정·확정자도 지움", st.note("PJ-3047").confirmed + "/" + st.note("PJ-3047").by, "false/");
+        // P-4 압축 저장 형식: 왕복, "칸 없음" 보존, 2,000×12 크기
+        function canon(rows){ return rows.map(function(r){ return Object.keys(r).sort().map(function(k){ return k + "=" + JSON.stringify(r[k]); }).join("&"); }).join("\n"); }
+        var g = DemoData.generate(), back = Importer.unpack(JSON.parse(JSON.stringify(Importer.pack(g))));
+        ck("P-4 압축 왕복 = 원본", canon(back.quotes) === canon(g.quotes) && canon(back.actuals) === canon(g.actuals) && JSON.stringify(back.index) === JSON.stringify(g.index), true);
+        var split = back.quotes.filter(function(r){ return r.sq !== undefined; })[0];
+        ck("P-4 분해형 행에 견적금액 칸 없음 유지", Object.prototype.hasOwnProperty.call(split, "amount"), false);
+        ck("P-4 압축 왕복 계산 결과 같음", DemoData.compute(DemoData.inspect(back)).projects.reduce(function(s, t){ return s + t.diff; }, 0), 43987226.1, WON);
+        var bq = [], ba = [];
+        for (var p = 0; p < 2000; p++) for (var j = 0; j < 12; j++){
+          var pj = "BIG-" + ("0000" + p).slice(-5), code = "M" + (j < 10 ? "0" : "") + j;
+          if (j < 6){ bq.push({ pj: pj, ver: "v1", quoteDate: "2025-11-10", baseMonth: "2025-11", kind: "K-07", customer: "", qty: 23, price: 37000000, code: code, name: code, unit: "kg", sq: 123.4, sp: 12345, index: "동선" });
+                      ba.push({ pj: pj, code: code, unit: "kg", doneMonth: "2026-03", aq: 130.1, ap: 13000 }); }
+          else { bq.push({ pj: pj, ver: "v1", quoteDate: "2025-11-10", baseMonth: "2025-11", kind: "K-07", customer: "", qty: 23, price: 37000000, code: code, name: code, unit: "식", amount: 1234000 });
+                 ba.push({ pj: pj, code: code, unit: "식", doneMonth: "2026-03", amount: 1300000 }); }
+        }
+        var oldLen = JSON.stringify({ raw: { quotes: bq, actuals: ba, index: {} } }).length, newLen = JSON.stringify({ packed: Importer.pack({ quotes: bq, actuals: ba, index: {} }) }).length;
+        ck("P-4 2,000×12 이전 형식은 한도 초과 (" + Math.round(oldLen / 1e4) / 100 + "백만 글자)", oldLen > 5000000, true);
+        ck("P-4 2,000×12 압축 형식은 한도 안 (" + Math.round(newLen / 1e4) / 100 + "백만 글자)", newLen < 4500000, true);
     }},
     { id: "DATA", title: "가상 데이터 · 예외 판정 (spec R0, R4.3)", run: function(ck){
         var D = DemoData.get();
@@ -2183,7 +2201,22 @@ var Importer = (function(){
     return { quotes: toCsv(sheet("quotes", raw.quotes)), actuals: toCsv(sheet("actuals", raw.actuals)), index: toCsv(idx) };
   }
 
-  return { decode: decode, parseCsv: parseCsv, readXlsx: readXlsx, readFile: readFile, mapTable: mapTable, toRaw: toRaw,
+  /* ---- 저장용 압축 형식 (R6.7, 임원 검수 2차 3번): 표마다 열 이름 한 번 + 값 배열. 칸이 "없음"은 별도 표시로 지킨다 ---- */
+  var NONE = "\u0001";
+  function pack(raw){
+    function tbl(rows){
+      var cols = [];
+      rows.forEach(function(r){ Object.keys(r).forEach(function(k){ if (cols.indexOf(k) < 0) cols.push(k); }); });
+      return { c: cols, r: rows.map(function(r){ return cols.map(function(k){ return Object.prototype.hasOwnProperty.call(r, k) ? r[k] : NONE; }); }) };
+    }
+    return { v: 2, q: tbl(raw.quotes), a: tbl(raw.actuals), i: raw.index || {} };
+  }
+  function unpack(p){
+    function rows(t){ return t.r.map(function(vals){ var o = {}; t.c.forEach(function(k, j){ if (vals[j] !== NONE) o[k] = vals[j]; }); return o; }); }
+    return { quotes: rows(p.q), actuals: rows(p.a), index: p.i || {} };
+  }
+
+  return { pack: pack, unpack: unpack, decode: decode, parseCsv: parseCsv, readXlsx: readXlsx, readFile: readFile, mapTable: mapTable, toRaw: toRaw,
            month: month, date: date, num: num, toCsv: toCsv, templates: templates, LABEL: LABEL };
 })();
 </script>
@@ -2563,7 +2596,11 @@ var Report = (function(C, Importer){
   var DATA_KEY = "cvapp.data.v1";
   (function loadImported(){                                  // 조각 9: 지난번에 불러온 실데이터 (R6.7)
     var st = Store.browserStorage(); if (!st) return;
-    try { var o = JSON.parse(st.getItem(DATA_KEY) || "null"); if (o && o.raw && o.raw.quotes && o.raw.actuals) DemoData.use(o.raw, o.meta); }
+    try {
+      var o = JSON.parse(st.getItem(DATA_KEY) || "null");
+      if (o && o.packed && o.packed.v === 2) DemoData.use(Importer.unpack(o.packed), o.meta);           // 압축 형식
+      else if (o && o.raw && o.raw.quotes && o.raw.actuals) DemoData.use(o.raw, o.meta);              // 이전 형식
+    }
     catch (e) { DemoData.useDemo(); }
   })();
   var DATA = DemoData.current(STORE.settings());
@@ -2976,7 +3013,7 @@ var Report = (function(C, Importer){
       var meta = { files: rs.filter(Boolean).map(function(r){ return r.name; }), at: nowStamp() };
       DemoData.use(raw, meta);
       var saved = false; var st = Store.browserStorage();
-      if (st){ try { st.setItem(DATA_KEY, JSON.stringify({ meta: meta, raw: raw })); saved = true; } catch (e) { saved = false; } }
+      if (st){ try { st.setItem(DATA_KEY, JSON.stringify({ meta: meta, packed: Importer.pack(raw) })); saved = true; } catch (e) { saved = false; } }
       refreshAll();
       var fileInfo = rs.filter(Boolean).map(function(r, i){
         var m = [qm, am, im][i];
