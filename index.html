@@ -269,6 +269,13 @@ body.sheet-open{overflow:hidden}
 .kd-top{display:flex; align-items:center; gap:8px; justify-content:space-between}
 .kd-top b{font-size:16px; font-weight:900; letter-spacing:-.2px}
 .kd-label{font-size:12px; font-weight:700; color:var(--muted)}
+.kd-why{font-size:12.5px; font-weight:800; color:var(--ink-2); background:var(--surface-2); border:1px dashed var(--muted); border-radius:4px; padding:3px 7px}
+.kd-guide{display:flex; flex-wrap:wrap; gap:4px 8px; align-items:center; margin:0 0 12px; padding:12px 14px; border-radius:var(--radius);
+  background:var(--yellow); color:var(--ink); text-decoration:none; font-size:14px; font-weight:700; border:2px solid var(--ink)}
+.kd-guide[hidden]{display:none}
+.kd-guide b{font-weight:900}
+.kd-guide:focus-visible{outline:3px solid #2457d6; outline-offset:2px}
+.pj-legend{flex-basis:100%; margin:0; font-size:12.5px; font-weight:700; color:var(--ink-2)}
 .kd-num{font-size:24px; font-weight:900; letter-spacing:-.5px; line-height:1.15}
 .kd-chg{font-size:14px; font-weight:900}
 .kd-chg small{font-size:12px; font-weight:700; color:var(--muted)}
@@ -550,6 +557,7 @@ body.sheet-open{overflow:hidden}
         <p>한 대 만드는 원가가 달마다 어떻게 변하는지</p>
       </div>
     </div>
+    <a class="kd-guide" id="kd-guide" href="#data" hidden><b>지금은 가상 데이터입니다.</b> <span>데이터 탭에서 우리 견적·실적 파일(엑셀·CSV)을 불러오면 이 화면이 우리 숫자로 바뀝니다 →</span></a>
     <div class="kd-meta"><span class="owner-chip" id="owner-chip">운영 담당자 · 미지정</span><span class="kd-asof num" id="kd-asof"></span></div>
     <div class="kd-cards" id="kd-cards"></div>
     <section class="kd-big" id="kd-big" aria-live="polite"></section>
@@ -593,6 +601,7 @@ body.sheet-open{overflow:hidden}
       </div>
     </div>
     <div class="pj-tools"><p class="list-note" id="pj-note"></p>
+      <p class="pj-legend" id="pj-legend">확인 필요 사유 · ① 차이율·금액 하한 넘음 · ② 금액 상한 넘음 · ③ 미분해 몫 큼 · ④ 견적이 오래됨 — 틀렸다는 뜻이 아니라 사람이 볼 차례</p>
       <span class="pj-tool-btns"><button type="button" class="btn sm" data-export="result">결과 CSV</button><button type="button" class="btn sm" data-export="print">인쇄</button></span></div>
 
     <div class="split">
@@ -717,7 +726,7 @@ body.sheet-open{overflow:hidden}
       <button type="button" class="btn danger" id="set-clear">메모·확정 모두 지우기</button>
     </div>
 
-    <div class="section-label"><span>자가 검산 (정답.md 예시 A~P + 가상 데이터 + 화면 점검)</span></div>
+    <div class="section-label"><span>자가 검산 (정답.md 예시 A~Q + 가상 데이터 + 화면 점검)</span></div>
     <div class="selftest" id="selftest" aria-live="polite">
       <div class="kpi dark st-summary"><span class="kpi-label">계산 엔진 검산</span><span class="st-score num" id="st-score">—</span><span class="st-note" id="st-note">검산 중…</span></div>
       <div class="card list" id="st-list"></div>
@@ -1945,8 +1954,19 @@ var KindModel = (function(C){
       if (a.unit === "alert") reasons.push(1);
       if (a.margin === "alert") reasons.push(2);
       var status = reasons.length ? "alert" : (a.unit === "unknown" || a.margin === "unknown") ? "unknown" : "ok";
+      var why = [];                                                   // 판단 불가 이유 (R8.2)
+      function add(w){ if (why.indexOf(w) < 0) why.push(w); }
+      if (a.unit === "unknown"){
+        if (a.prev.n === 0) add("직전 3개월 완료 없음");
+        if (a.recent.n === 0) add("최근 3개월 완료 없음");
+        if ((a.prev.n > 0 && a.prev.qty === 0) || (a.recent.n > 0 && a.recent.qty === 0)) add("생산수량 정보 없음");
+      }
+      if (a.margin === "unknown"){
+        if (a.recent.n === 0) add("최근 3개월 완료 없음");
+        else if (a.recent.price === 0) add("판매금액 정보 없음");
+      }
       return { kind: kind, a: a, monthly: mo, count: mine.length, flagged: mine.filter(function(t){ return t.flags.length; }).length,
-               gaps: mo.filter(function(r){ return r.n === 0; }).length, status: status, reasons: reasons };
+               gaps: mo.filter(function(r){ return r.n === 0; }).length, status: status, reasons: reasons, why: why };
     });
     list.sort(function(x, y){
       var cx = x.a.unitChange === null ? -Infinity : x.a.unitChange, cy = y.a.unitChange === null ? -Infinity : y.a.unitChange;
@@ -2416,6 +2436,30 @@ var Report = (function(C, Importer){
     return r;
   }
 
+  // 처음 쓰는 사람 안내 점검 (정답 Q, 임원 검수 3차)
+  function guideChecks(){
+    var r = { id: "UI-Q", title: "화면 그리기 점검 · 처음 쓰는 사람 안내 (정답 Q)", total: 0, passed: 0, fails: [] };
+    function ck(label, got, want){ r.total++; if (got === want) r.passed++; else r.fails.push(label + ": 결과 " + got + " / 정답 " + want); }
+    var ds = DemoData.saveState();
+    try {
+      ck("사유 범례", document.getElementById("pj-legend").textContent.indexOf("① 차이율·금액 하한 넘음 · ② 금액 상한 넘음 · ③ 미분해 몫 큼 · ④ 견적이 오래됨") >= 0, true);
+      var b = document.querySelector("#pj-cards .badge.flag");
+      ck("배지 설명", b && b.getAttribute("title"), "① 차이율·금액 하한 넘음 · ② 금액 상한 넘음");
+      function tp(id, kind, month){ return C.project({ id: id, kind: kind, qty: 1, price: 200, baseMonth: month, doneMonth: month, materials: [{ code: "A", name: "총액", type: "total", pre: 100, post: 110 }] }); }
+      var k1 = KindModel.build({ kinds: ["N"], firstMonth: "2026-01", lastMonth: "2026-06", projects: [tp("n1", "N", "2026-05")] }, C.DEFAULTS)[0];
+      ck("직전 3개월 완료 없음", k1.status + " · " + k1.why.join(" · "), "unknown · 직전 3개월 완료 없음");
+      var qm = Importer.mapTable(Importer.parseCsv("프로젝트번호,기종,견적기준월,재료코드,견적사용량,견적단가\r\nZ-1,K9,2026-01,CU,10,15000\r\n"), "quotes");
+      var am = Importer.mapTable(Importer.parseCsv("프로젝트번호,재료코드,실제사용량,실제단가,생산완료월\r\nZ-1,CU,11,18000,2026-05\r\n"), "actuals");
+      var k2 = KindModel.build(DemoData.compute(DemoData.inspect(Importer.toRaw(qm, am, null))), C.DEFAULTS)[0];
+      ck("P-2 이유 모두", "판단 불가 · " + k2.why.join(" · "), "판단 불가 · 직전 3개월 완료 없음 · 생산수량 정보 없음 · 판매금액 정보 없음");
+      ck("가상 데이터 → 첫 화면 안내 보임", document.getElementById("kd-guide").hidden, false);
+      DemoData.use(Importer.toRaw(qm, am, null), { files: ["시험.csv"], at: "시험" }); renderSource();
+      ck("실데이터 → 첫 화면 안내 숨김", document.getElementById("kd-guide").hidden, true);
+    } catch (e) { r.total++; r.fails.push("실행 오류: " + e.message); }
+    DemoData.restoreState(ds); renderSource();
+    return r;
+  }
+
   // 설정·메모 화면 점검 (정답 L, 조각 6) — 실제 저장소 대신 가짜 저장소로 바꿔 그려 보고 되돌린다
   function settingsChecks(){
     var r = { id: "UI-L", title: "화면 그리기 점검 · 설정·메모·확정 (정답 L)", total: 0, passed: 0, fails: [] };
@@ -2544,7 +2588,7 @@ var Report = (function(C, Importer){
     document.getElementById("st-list").innerHTML = html;
     document.getElementById("st-score").textContent = passed + " / " + total;
     document.getElementById("st-note").textContent = allOk
-      ? "정답.md 예시 A~P, 가상 데이터 점검, 화면 점검이 모두 정답과 일치합니다 (금액 1원·비율 0.01%p 미만). 검산은 언제나 가상 데이터·기본 기준값으로 돌고, 끝나면 지금 데이터로 되돌립니다."
+      ? "정답.md 예시 A~Q, 가상 데이터 점검, 화면 점검이 모두 정답과 일치합니다 (금액 1원·비율 0.01%p 미만). 검산은 언제나 가상 데이터·기본 기준값으로 돌고, 끝나면 지금 데이터로 되돌립니다."
       : "정답과 다른 항목이 있습니다";
     document.querySelector(".st-summary").classList.toggle("fail", !allOk);
     if (selfTestBanner) selfTestBanner.textContent = "selftest " + passed + "/" + total + (allOk ? " PASS" : " FAIL") + " · errors " + window.__errs.length + (window.__errs.length ? " (" + window.__errs[0] + ")" : "");
@@ -2558,7 +2602,7 @@ var Report = (function(C, Importer){
     var realStore = STORE, ds = DemoData.saveState(), saveList = Object.assign({}, listState), saveSel = selectedId, saveKind = selectedKind;
     STORE = Store.create(Store.memoryStorage()); DemoData.useDemo(); listState = Object.assign({}, L.DEFAULT); refreshAll();
     var results;
-    try { results = SelfTest.run().concat([uiChecks(), detailChecks(), kindChecks(), settingsChecks()]); }
+    try { results = SelfTest.run().concat([uiChecks(), detailChecks(), kindChecks(), guideChecks(), settingsChecks()]); }
     finally {
       STORE = realStore; DemoData.restoreState(ds); listState = saveList; selectedId = saveSel; selectedKind = saveKind;
       refreshAll(); buildSettingsForm(); setStatus("저장된 기준값으로 계산 중 · 확인 필요 " + flaggedCount(DATA) + "건");
@@ -2613,11 +2657,12 @@ var Report = (function(C, Importer){
   var CIRC = ["", "①", "②", "③", "④"];
 
   function dirClass(v){ return v > 0.5 ? "over" : v < -0.5 ? "under" : "zero"; }
+  var WHY = ["", "① 차이율·금액 하한 넘음", "② 금액 상한 넘음", "③ 미분해 몫 큼", "④ 견적이 오래됨"];
   function statusBadge(t){
-    var circ = t.flags.map(function(f){ return CIRC[f]; }).join("");
+    var circ = t.flags.map(function(f){ return CIRC[f]; }).join(""), tip = t.flags.map(function(f){ return WHY[f]; }).join(" · ");
     if (!t.checkOk) return '<span class="badge bad">검산 불일치</span>';
-    if (CONF[t.id]) return '<span class="badge done">확정 ✓' + (circ ? " " + circ : "") + "</span>";
-    if (t.flags.length) return '<span class="badge flag">확인 필요 ' + circ + "</span>";
+    if (CONF[t.id]) return '<span class="badge done" title="' + tip + '">확정 ✓' + (circ ? " " + circ : "") + "</span>";
+    if (t.flags.length) return '<span class="badge flag" title="' + tip + '">확인 필요 ' + circ + "</span>";
     return '<span class="badge ok">정상</span>';
   }
   function gauge(t, maxAbs){
@@ -2887,7 +2932,7 @@ var Report = (function(C, Importer){
   }
   function kindBadge(k){
     if (k.status === "alert") return '<span class="badge flag">기종 주의 ' + k.reasons.map(function(f){ return CIRC[f]; }).join("") + "</span>";
-    if (k.status === "unknown") return '<span class="badge unknown">판단 불가</span>';
+    if (k.status === "unknown") return '<span class="badge unknown" title="' + esc(k.why.join(" · ")) + '">판단 불가</span>';
     return '<span class="badge ok">정상</span>';
   }
   function renderKinds(){
@@ -2899,6 +2944,7 @@ var Report = (function(C, Importer){
       return '<article class="kd' + (k.status === "alert" ? " alert" : "") + (k.kind === selectedKind ? " sel" : "") + '" data-kind="' + esc(k.kind) + '">' +
         '<button type="button" class="kd-pick" data-kind="' + esc(k.kind) + '" aria-pressed="' + (k.kind === selectedKind) + '">' +
           '<span class="kd-top"><b>' + esc(k.kind) + "</b>" + kindBadge(k) + "</span>" +
+          (k.why.length ? '<span class="kd-why" data-k="why">판단 불가 · ' + esc(k.why.join(" · ")) + "</span>" : "") +
           '<span class="kd-label">최근 3개월 개당 원가</span>' +
           '<span class="kd-num num">' + (a.unitRecent !== undefined ? C.won(a.unitRecent) + "원" : "—") + "</span>" +
           '<span class="kd-chg num ' + (chg === null ? "" : chg > 0 ? "over" : chg < 0 ? "under" : "") + '" data-k="chg">' + (chg === null ? "비교 불가" : C.pct(chg, 1, true)) + " <small>직전 3개월 대비</small></span>" +
@@ -2961,6 +3007,7 @@ var Report = (function(C, Importer){
       el.title = demo ? "모든 숫자는 시연용 가상 데이터입니다" : "불러온 파일: " + (src.files || []).join(", ") + " · " + (src.at || "");
       el.classList.toggle("real", !demo);
     });
+    document.getElementById("kd-guide").hidden = !demo;
     document.getElementById("src-foot").textContent = demo
       ? "모든 숫자는 시연용 가상 데이터입니다 · 원인은 담당자가 확정합니다"
       : "실데이터 · " + (src.files || []).join(" · ") + " · 불러온 시각 " + (src.at || "") + " · 원인은 담당자가 확정합니다";
